@@ -6,6 +6,7 @@ const logger = require('./logger');
 const configManager = require('./config-manager');
 const automationsManager = require('./automations-manager');
 const scenesManager = require('./scenes-manager');
+const pushManager = require('./push-manager');
 
 const startTime = Date.now();
 
@@ -338,6 +339,26 @@ function startUiServer(registry, config, scheduler, bridge) {
     } catch (e) {
       res.status(400).json({ error: e.message });
     }
+  });
+
+  // ─── API: push notifications ─────────────────────────────────────────────────
+
+  app.get('/api/push/vapid-public-key', (req, res) => {
+    res.json({ publicKey: pushManager.getPublicKey() });
+  });
+
+  app.post('/api/push/subscribe', (req, res) => {
+    try {
+      pushManager.addSubscription(req.body);
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  });
+
+  app.delete('/api/push/subscribe', (req, res) => {
+    pushManager.removeSubscription(req.body.endpoint);
+    res.json({ ok: true });
   });
 
   app.post('/api/system/restart', (req, res) => {

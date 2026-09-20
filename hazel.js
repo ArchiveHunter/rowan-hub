@@ -7,6 +7,7 @@ const { Registry } = require('./core/registry');
 const { startUiServer } = require('./core/ui-server');
 const Scheduler = require('./core/scheduler');
 const scenesManager = require('./core/scenes-manager');
+const pushManager = require('./core/push-manager');
 
 async function main() {
   const configPath = path.join(__dirname, 'config.yaml');
@@ -77,6 +78,16 @@ async function main() {
 
   const scheduler = new Scheduler(registry, config.location);
   scheduler.start();
+
+  registry.on('device-offline', ({ name }) => {
+    pushManager.send('Device Offline', `${name} is not responding.`, { tag: `offline-${name}` });
+  });
+
+  scheduler.on('fired', ({ name }) => {
+    pushManager.send('Automation Ran', `"${name}" completed successfully.`, { tag: `auto-${name}` });
+  });
+
+  pushManager.startUpdateChecks();
 
   startUiServer(registry, config.ui || {}, scheduler, bridge);
 }

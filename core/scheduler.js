@@ -1,8 +1,10 @@
+const { EventEmitter } = require('events');
 const suncalc = require('suncalc');
 const automationsManager = require('./automations-manager');
 
-class Scheduler {
+class Scheduler extends EventEmitter {
   constructor(registry, location) {
+    super();
     this._registry = registry;
     this._lat = location?.latitude ?? 51.5;
     this._lon = location?.longitude ?? -0.12;
@@ -71,6 +73,7 @@ class Scheduler {
         console.error(`[Scheduler] Action failed (${action.device}): ${e.message}`);
       }
     }
+    this.emit('fired', { id: auto.id, name: auto.name });
   }
 
   _scheduleMidnight() {

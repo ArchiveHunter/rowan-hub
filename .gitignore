@@ -6,3 +6,6 @@ config.yaml.bak
 .env
 automations.json
 scenes.json
+matter-storage/
+push-vapid.json
+push-subscriptions.json

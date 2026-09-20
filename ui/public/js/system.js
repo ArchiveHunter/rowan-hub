@@ -144,6 +144,96 @@
     }
   }
 
+  // ── Push notifications ────────────────────────────────────────────────────────
+
+  var pushBtn = document.getElementById('btn-push-toggle');
+  var pushStatusText = document.getElementById('push-status-text');
+
+  function urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var raw = atob(base64);
+    var arr = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return arr;
+  }
+
+  function setPushUI(subscribed) {
+    if (!pushBtn) return;
+    pushBtn.textContent = subscribed ? 'Disable notifications' : 'Enable notifications';
+    pushBtn.className = subscribed ? 'btn btn-secondary' : 'btn btn-primary';
+    if (pushStatusText) pushStatusText.textContent = subscribed ? 'Notifications are on for this browser' : '';
+  }
+
+  function initPush() {
+    if (!pushBtn) return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      pushBtn.disabled = true;
+      pushBtn.textContent = 'Not supported';
+      if (pushStatusText) pushStatusText.textContent = 'Push notifications are not supported in this browser.';
+      return;
+    }
+
+    navigator.serviceWorker.ready.then(function (reg) {
+      reg.pushManager.getSubscription().then(function (existing) {
+        setPushUI(!!existing);
+      });
+    });
+
+    pushBtn.addEventListener('click', function () {
+      if (Notification.permission === 'denied') {
+        if (pushStatusText) pushStatusText.textContent = 'Notifications are blocked — allow them in your browser settings.';
+        return;
+      }
+
+      navigator.serviceWorker.ready.then(function (reg) {
+        reg.pushManager.getSubscription().then(function (existing) {
+          if (existing) {
+            // Unsubscribe
+            existing.unsubscribe().then(function () {
+              fetch('/api/push/subscribe', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ endpoint: existing.endpoint }),
+              });
+              setPushUI(false);
+              showToast('Notifications disabled', 'success');
+            });
+          } else {
+            // Subscribe
+            fetch('/api/push/vapid-public-key')
+              .then(function (r) { return r.json(); })
+              .then(function (data) {
+                return reg.pushManager.subscribe({
+                  userVisibleOnly: true,
+                  applicationServerKey: urlBase64ToUint8Array(data.publicKey),
+                });
+              })
+              .then(function (sub) {
+                return fetch('/api/push/subscribe', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(sub),
+                });
+              })
+              .then(function (r) { return r.json(); })
+              .then(function (data) {
+                if (data.ok) {
+                  setPushUI(true);
+                  showToast('Notifications enabled', 'success');
+                }
+              })
+              .catch(function () {
+                showToast('Could not enable notifications', 'error');
+              });
+          }
+        });
+      });
+    });
+  }
+
+  initPush();
+
   // ── Restart ───────────────────────────────────────────────────────────────────
 
   if (restartBtn) {
