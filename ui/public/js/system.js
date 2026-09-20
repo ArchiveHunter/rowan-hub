@@ -42,6 +42,8 @@
 
         var bar = document.getElementById('stat-mem-bar');
         if (bar) bar.style.width = Math.min(pct, 100) + '%';
+
+        syncPairingState(data.windowStatus || 0);
       })
       .catch(function () {
         // Silently fail — the app might be restarting
@@ -72,6 +74,74 @@
         })
         .catch(function () { showToast('Save failed', 'error'); });
     });
+  }
+
+  // ── Pairing window ────────────────────────────────────────────────────────────
+
+  var pairBtn = document.getElementById('btn-open-commissioning');
+  var pairingStatus = document.getElementById('pairing-status');
+  var pairingCountdown = document.getElementById('pairing-countdown');
+  var pairingTimer = null;
+  var pairingSecondsLeft = 0;
+
+  function formatCountdown(s) {
+    var m = Math.floor(s / 60);
+    var sec = s % 60;
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+
+  function startPairingCountdown(seconds) {
+    if (pairingTimer) clearInterval(pairingTimer);
+    pairingSecondsLeft = seconds;
+    if (pairBtn) { pairBtn.disabled = true; pairBtn.textContent = 'Pairing window open…'; }
+    if (pairingStatus) pairingStatus.style.display = '';
+    if (pairingCountdown) pairingCountdown.textContent = formatCountdown(pairingSecondsLeft);
+
+    pairingTimer = setInterval(function () {
+      pairingSecondsLeft--;
+      if (pairingCountdown) pairingCountdown.textContent = formatCountdown(Math.max(0, pairingSecondsLeft));
+      if (pairingSecondsLeft <= 0) {
+        clearInterval(pairingTimer);
+        pairingTimer = null;
+        if (pairBtn) { pairBtn.disabled = false; pairBtn.textContent = 'Open for pairing'; }
+        if (pairingStatus) pairingStatus.style.display = 'none';
+      }
+    }, 1000);
+  }
+
+  if (pairBtn) {
+    pairBtn.addEventListener('click', function () {
+      pairBtn.disabled = true;
+      pairBtn.textContent = 'Opening…';
+      fetch('/api/system/open-commissioning', { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.ok) {
+            startPairingCountdown(data.timeout || 900);
+          } else {
+            pairBtn.disabled = false;
+            pairBtn.textContent = 'Open for pairing';
+            showToast(data.error || 'Failed to open pairing window', 'error');
+          }
+        })
+        .catch(function () {
+          pairBtn.disabled = false;
+          pairBtn.textContent = 'Open for pairing';
+          showToast('Failed to open pairing window', 'error');
+        });
+    });
+  }
+
+  // Sync pairing state when polling picks up windowStatus from another source
+  function syncPairingState(windowStatus) {
+    if (windowStatus > 0 && !pairingTimer) {
+      // Window is open but we don't have a local countdown — show generic open state
+      if (pairBtn) { pairBtn.disabled = true; pairBtn.textContent = 'Pairing window open…'; }
+      if (pairingStatus) pairingStatus.style.display = '';
+    } else if (windowStatus === 0 && !pairingTimer) {
+      if (pairBtn) { pairBtn.disabled = false; pairBtn.textContent = 'Open for pairing'; }
+      if (pairingStatus) pairingStatus.style.display = 'none';
+    }
   }
 
   // ── Restart ───────────────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ const { Endpoint, Environment, ServerNode, VendorId } = require('@matter/main');
 const { AggregatorEndpoint } = require('@matter/main/endpoints/aggregator');
 const { BridgedDeviceBasicInformationServer } = require('@matter/main/behaviors/bridged-device-basic-information');
 const { OnOffPlugInUnitDevice } = require('@matter/main/devices/on-off-plug-in-unit');
+const { DeviceCommissioner } = require('@matter/protocol');
 const { buildEndpoints } = require('./device-builder');
 
 class HazelBridge {
@@ -13,6 +14,7 @@ class HazelBridge {
     this._server = null;
     this._aggregator = null;
     this._deviceEndpoints = new Map(); // deviceId → Endpoint[]
+    this._windowOpen = false;
   }
 
   async init() {
@@ -114,12 +116,26 @@ class HazelBridge {
     console.log(`[Hazel] QR code printed above — scan with Home / Google Home / Alexa app`);
   }
 
+  async openCommissioningWindow() {
+    const commissioner = this._server.env.get(DeviceCommissioner);
+    this._windowOpen = true;
+    await commissioner.allowBasicCommissioning(() => {
+      this._windowOpen = false;
+    });
+  }
+
   getCommissioningInfo() {
+    let qrPairingCode = null;
+    try {
+      qrPairingCode = this._server?.state?.commissioning?.pairingCodes?.qrPairingCode ?? null;
+    } catch {}
     return {
       passcode: this.config.passcode || 20202021,
       discriminator: this.config.discriminator || 3840,
       port: this.config.port || 5540,
       commissioned: this._server?.lifecycle?.isCommissioned ?? false,
+      qrPairingCode,
+      windowStatus: this._windowOpen ? 2 : 0,
     };
   }
 }

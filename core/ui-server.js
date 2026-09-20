@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const os = require('os');
+const QRCode = require('qrcode');
 const logger = require('./logger');
 const configManager = require('./config-manager');
 const automationsManager = require('./automations-manager');
@@ -78,10 +79,16 @@ function startUiServer(registry, config, scheduler, bridge) {
     res.render('logs', { page: 'logs' });
   });
 
-  app.get('/system', (req, res) => {
+  app.get('/system', async (req, res) => {
     const cfg = configManager.load();
     const commissioningInfo = bridge ? bridge.getCommissioningInfo() : null;
-    res.render('system', { bridge: cfg.bridge, location: cfg.location || {}, page: 'system', commissioningInfo });
+    let qrDataUrl = null;
+    if (commissioningInfo?.qrPairingCode) {
+      try {
+        qrDataUrl = await QRCode.toDataURL(commissioningInfo.qrPairingCode, { width: 220, margin: 2, color: { dark: '#000', light: '#fff' } });
+      } catch {}
+    }
+    res.render('system', { bridge: cfg.bridge, location: cfg.location || {}, page: 'system', commissioningInfo, qrDataUrl });
   });
 
   // ─── API: devices ────────────────────────────────────────────────────────────
@@ -307,6 +314,7 @@ function startUiServer(registry, config, scheduler, bridge) {
   app.get('/api/system', (req, res) => {
     const mem = process.memoryUsage();
     const cpuLoad = os.loadavg()[0];
+    const commissioningInfo = bridge ? bridge.getCommissioningInfo() : null;
     res.json({
       uptime: Math.floor((Date.now() - startTime) / 1000),
       nodeVersion: process.version,
@@ -318,7 +326,18 @@ function startUiServer(registry, config, scheduler, bridge) {
       cpuLoad: cpuLoad.toFixed(2),
       deviceCount: registry.getAll().length,
       version: require('../package.json').version,
+      windowStatus: commissioningInfo?.windowStatus ?? 0,
     });
+  });
+
+  app.post('/api/system/open-commissioning', async (req, res) => {
+    if (!bridge) return res.status(503).json({ error: 'Bridge not available' });
+    try {
+      await bridge.openCommissioningWindow(900);
+      res.json({ ok: true, timeout: 900 });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
   });
 
   app.post('/api/system/restart', (req, res) => {

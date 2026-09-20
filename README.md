@@ -314,13 +314,15 @@ Access at `http://{host}:3088`
 | **Scenes** | Create named scenes; scenes appear as switches on all paired platforms |
 | **Automations** | Time-based and sunrise/sunset automation rules |
 | **Logs** | Streaming log console |
-| **System** | Bridge commissioning info, passcode, live stats, Restart button |
+| **System** | Bridge commissioning info, QR code, pairing window, live stats, Restart button |
 
 ---
 
 ## Commissioning
 
-When Hazel starts for the first time (or after a commission reset), it prints a QR code to the log output. Scan it with any compatible app to pair:
+### First platform
+
+When Hazel starts for the first time (or after a commission reset), a QR code is displayed in the System page of the web UI and printed to the log output. Scan it with any compatible app:
 
 | Platform | App |
 |---|---|
@@ -328,12 +330,20 @@ When Hazel starts for the first time (or after a commission reset), it prints a 
 | Google | Google Home app — tap + → Set up device → Matter |
 | Amazon | Alexa app — Devices → + → Add Device → Matter |
 
-All three can be commissioned from the same QR code — scan once per platform.
-
 If you can't scan the QR code, you can enter the passcode manually:
 1. Open the commissioning flow in your app
 2. Choose "Enter code manually" or similar
 3. Enter the 8-digit passcode from `config.yaml`
+
+### Adding a second or third platform
+
+Once the bridge is commissioned by one platform, it is no longer in open commissioning mode. To add another platform (e.g. Alexa after Apple Home is already set up):
+
+1. Open the web UI → **System**
+2. Click **Open for pairing** — this opens a 15-minute commissioning window and starts the bridge advertising on the network
+3. Open the commissioning flow in the second app and scan the QR code shown on the System page
+
+The window closes automatically after 15 minutes or when commissioning completes. You can repeat this for each additional platform.
 
 ### Commission state
 
