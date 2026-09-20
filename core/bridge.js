@@ -79,7 +79,7 @@ class HazelBridge {
           nodeLabel: scene.name,
           productName: scene.name,
           productLabel: scene.name,
-          serialNumber: `hazel-scene-${scene.id}`,
+          serialNumber: `hazel-scene-${scene.id}`.slice(0, 32),
           reachable: true,
         },
       }

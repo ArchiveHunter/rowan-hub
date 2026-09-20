@@ -2,7 +2,7 @@ module.exports = {
   apps: [{
     name: 'hazel',
     script: 'hazel.js',
-    cwd: '/root/hazel',
+    cwd: '/root/hazel-matter',
     exec_mode: 'fork',
     autorestart: true,
     watch: false,

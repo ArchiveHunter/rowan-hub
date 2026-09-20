@@ -12,9 +12,9 @@ const { OccupancySensorDevice } = require('@matter/main/devices/occupancy-sensor
 const { TemperatureSensorDevice } = require('@matter/main/devices/temperature-sensor');
 const { HumiditySensorDevice } = require('@matter/main/devices/humidity-sensor');
 
-// Extended color light that supports hue/saturation mode (for HSV drivers like WLED)
+// HS + CT + XY — all three features needed for ExtendedColorLight compliance
 const HsColorLightDevice = ExtendedColorLightDevice.with(
-  ColorControlServer.with('HueSaturation', 'ColorTemperature')
+  ColorControlServer.with('HueSaturation', 'ColorTemperature', 'Xy')
 );
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -25,7 +25,7 @@ function bridgeInfo(config, label) {
     nodeLabel: name,
     productName: name,
     productLabel: name,
-    serialNumber: `hazel-${config.id}`,
+    serialNumber: `hazel-${config.id}`.slice(0, 32),
     reachable: true,
   };
 }
@@ -77,10 +77,24 @@ function buildLightOrSwitchEndpoint(deviceConfig, driver, caps) {
     DeviceBase = OnOffPlugInUnitDevice;
   }
 
-  const endpoint = new Endpoint(DeviceBase.with(BridgedDeviceBasicInformationServer), {
+  // colorMode is mandatory but absent from the SDK's default State — inject it
+  // (0 = HueSaturation, 2 = ColorTemperatureMireds)
+  const endpointOptions = {
     id: deviceConfig.id,
     bridgedDeviceBasicInformation: bridgeInfo(deviceConfig),
-  });
+  };
+  const ctInit = hasColor || hasColorTemp ? {
+    colorTempPhysicalMinMireds: 153,
+    colorTempPhysicalMaxMireds: 500,
+    coupleColorTempToLevelMinMireds: 153,
+  } : {};
+  if (hasColor) {
+    endpointOptions.colorControl = { colorMode: 0, ...ctInit };
+  } else if (hasColorTemp) {
+    endpointOptions.colorControl = { colorMode: 2, ...ctInit };
+  }
+
+  const endpoint = new Endpoint(DeviceBase.with(BridgedDeviceBasicInformationServer), endpointOptions);
 
   let syncing = false;
 
@@ -289,7 +303,7 @@ function buildPresetEndpoint(deviceConfig, driver, presetName) {
         nodeLabel: label,
         productName: label,
         productLabel: label,
-        serialNumber: `hazel-${id}`,
+        serialNumber: `hazel-${id}`.slice(0, 32),
         reachable: true,
       },
     }
