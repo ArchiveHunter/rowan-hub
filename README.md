@@ -304,7 +304,34 @@ Exposes a switch representing HVAC on/off. Full thermostat cluster support (targ
 
 ## Web UI
 
-Access at `http://{host}:3088`
+Hazel serves two endpoints:
+
+| URL | Purpose |
+|---|---|
+| `http://{host}:3088` | Local network access |
+| `https://{host}:3443` | HTTPS — required for push notifications and PWA install on phones |
+
+A self-signed TLS certificate is generated automatically on first start and saved alongside the project (gitignored). Your browser will show a security warning the first time — this is expected for a self-signed cert on a local server.
+
+**To trust the certificate on iOS (recommended for PWA install):**
+1. Open `https://{host}:3443` in Safari
+2. Tap **Show Details → visit this website** to bypass the warning
+3. Go to **Settings → General → VPN & Device Management** → find the Hazel certificate → tap **Trust**
+4. Refresh — the warning will be gone permanently for this device
+
+**To install as a home screen app on iPhone/iPad:**
+- Open `https://{host}:3443` in Safari → **Share → Add to Home Screen**
+- Must be HTTPS — the HTTP address does not support PWA install or push notifications
+
+If you have a proper domain certificate (e.g. from Let's Encrypt), you can point Hazel at it instead of using the self-signed cert:
+
+```yaml
+ui:
+  port: 3088
+  httpsPort: 3443
+  certFile: /etc/letsencrypt/live/yourdomain/fullchain.pem
+  keyFile:  /etc/letsencrypt/live/yourdomain/privkey.pem
+```
 
 | Page | What it does |
 |---|---|
@@ -314,7 +341,7 @@ Access at `http://{host}:3088`
 | **Scenes** | Create named scenes; scenes appear as switches on all paired platforms |
 | **Automations** | Time-based and sunrise/sunset automation rules |
 | **Logs** | Streaming log console |
-| **System** | Bridge commissioning info, QR code, pairing window, live stats, Restart button |
+| **System** | Bridge commissioning info, QR code, pairing window, push notifications, live stats, Restart button |
 
 ---
 
