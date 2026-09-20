@@ -20,6 +20,14 @@ async function main() {
   const registry = new Registry();
   const bridge = new HazelBridge(config.bridge);
 
+  // Initialise the Matter bridge server before adding any devices
+  try {
+    await bridge.init();
+  } catch (e) {
+    console.error(`[Hazel] Bridge init failed: ${e.message}`);
+    process.exit(1);
+  }
+
   for (const deviceConfig of config.devices) {
     if (deviceConfig.enabled === false) {
       console.log(`[Hazel] Skipping disabled device: ${deviceConfig.name}`);
@@ -37,7 +45,6 @@ async function main() {
 
     console.log(`[Hazel] Initialising ${deviceConfig.plugin}: ${deviceConfig.name}`);
 
-    // Pass the plugin's global config section (e.g. config.ewelink for ewelink devices)
     const globalConfig = config[deviceConfig.plugin] || {};
 
     let driver;
@@ -48,20 +55,25 @@ async function main() {
       process.exit(1);
     }
 
-    // Ensure every device has an id — write it back to config if missing
     if (!deviceConfig.id) {
       deviceConfig.id = deviceConfig.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     }
+
     registry.register(deviceConfig.id, deviceConfig, driver);
-    bridge.addDevice(deviceConfig, driver);
+    await bridge.addDevice(deviceConfig, driver);
   }
 
-  // Expose scenes as HomeKit switches (tap = trigger, auto-resets to off)
   for (const scene of scenesManager.getAll()) {
-    bridge.addScene(scene, registry);
+    await bridge.addScene(scene, registry);
   }
 
-  bridge.start();
+  // start() publishes to the network and prints the commissioning QR code
+  try {
+    await bridge.start();
+  } catch (e) {
+    console.error(`[Hazel] Bridge start failed: ${e.message}`);
+    process.exit(1);
+  }
 
   const scheduler = new Scheduler(registry, config.location);
   scheduler.start();

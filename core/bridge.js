@@ -1,90 +1,126 @@
-const hap = require('hap-nodejs');
-const { Bridge, Accessory, Service, Characteristic, uuid, Categories, HAPStorage } = hap;
+require('@matter/main/platform');
+
 const path = require('path');
-const { buildAccessories } = require('./device-builder');
+const { Endpoint, Environment, ServerNode, VendorId } = require('@matter/main');
+const { AggregatorEndpoint } = require('@matter/main/endpoints/aggregator');
+const { BridgedDeviceBasicInformationServer } = require('@matter/main/behaviors/bridged-device-basic-information');
+const { OnOffPlugInUnitDevice } = require('@matter/main/devices/on-off-plug-in-unit');
+const { buildEndpoints } = require('./device-builder');
 
 class HazelBridge {
   constructor(config) {
     this.config = config;
-
-    HAPStorage.setCustomStoragePath(path.join(__dirname, '..', 'persist'));
-
-    this._bridge = new Bridge(config.name || 'Hazel', uuid.generate(`hazel:bridge:${config.name}`));
-
-    this._bridge.getService(Service.AccessoryInformation)
-      .setCharacteristic(Characteristic.Manufacturer, 'Hazel')
-      .setCharacteristic(Characteristic.Model, 'Bridge')
-      .setCharacteristic(Characteristic.SerialNumber, config.username || '00:00:00:00:00:00');
-
-    this._deviceAccessories = new Map(); // deviceId → Accessory[]
+    this._server = null;
+    this._aggregator = null;
+    this._deviceEndpoints = new Map(); // deviceId → Endpoint[]
   }
 
-  addDevice(deviceConfig, driver) {
-    const accessories = buildAccessories(deviceConfig, driver);
-    for (const acc of accessories) {
-      this._bridge.addBridgedAccessory(acc);
+  async init() {
+    // Store matter.js persistence alongside the project
+    Environment.default.vars.set('storage.path', path.join(__dirname, '..', 'matter-storage'));
+
+    const uniqueId = 'hazel-bridge';
+
+    this._server = await ServerNode.create({
+      id: uniqueId,
+      network: {
+        port: this.config.port || 5540,
+      },
+      commissioning: {
+        passcode: this.config.passcode || 20202021,
+        discriminator: this.config.discriminator || 3840,
+      },
+      productDescription: {
+        name: this.config.name || 'Hazel',
+        deviceType: AggregatorEndpoint.deviceType,
+      },
+      basicInformation: {
+        vendorName: 'Hazel',
+        vendorId: VendorId(0xfff1),
+        nodeLabel: this.config.name || 'Hazel',
+        productName: 'Hazel Matter Bridge',
+        productLabel: 'Hazel',
+        productId: 0x8000,
+        serialNumber: uniqueId,
+        uniqueId,
+      },
+    });
+
+    this._aggregator = new Endpoint(AggregatorEndpoint, { id: 'aggregator' });
+    await this._server.add(this._aggregator);
+  }
+
+  async addDevice(deviceConfig, driver) {
+    const endpoints = buildEndpoints(deviceConfig, driver);
+    for (const ep of endpoints) {
+      await this._aggregator.add(ep);
     }
-    this._deviceAccessories.set(deviceConfig.id, accessories);
-    const names = accessories.map(a => a.displayName).join(', ');
+    this._deviceEndpoints.set(deviceConfig.id, endpoints);
+    const names = endpoints.map(e => e.id).join(', ');
     console.log(`[Hazel] Registered: ${names}`);
   }
 
-  removeDevice(deviceId) {
-    const accs = this._deviceAccessories.get(deviceId);
-    if (!accs) return;
-    for (const acc of accs) {
-      try { this._bridge.removeBridgedAccessory(acc); } catch {}
+  async removeDevice(deviceId) {
+    const endpoints = this._deviceEndpoints.get(deviceId);
+    if (!endpoints) return;
+    for (const ep of endpoints) {
+      try { await ep.close(); } catch {}
     }
-    this._deviceAccessories.delete(deviceId);
-    console.log(`[Hazel] Removed from HomeKit: ${deviceId}`);
+    this._deviceEndpoints.delete(deviceId);
+    console.log(`[Hazel] Removed from Matter: ${deviceId}`);
   }
 
-  addScene(scene, registry) {
-    const acc = new Accessory(scene.name, uuid.generate(`hazel:scene:${scene.id}`));
+  async addScene(scene, registry) {
+    const endpoint = new Endpoint(
+      OnOffPlugInUnitDevice.with(BridgedDeviceBasicInformationServer),
+      {
+        id: `scene-${scene.id}`,
+        bridgedDeviceBasicInformation: {
+          nodeLabel: scene.name,
+          productName: scene.name,
+          productLabel: scene.name,
+          serialNumber: `hazel-scene-${scene.id}`,
+          reachable: true,
+        },
+      }
+    );
+    await this._aggregator.add(endpoint);
 
-    acc.getService(Service.AccessoryInformation)
-      .setCharacteristic(Characteristic.Manufacturer, 'Hazel')
-      .setCharacteristic(Characteristic.Model, 'Scene')
-      .setCharacteristic(Characteristic.SerialNumber, scene.id);
+    let triggering = false;
+    endpoint.events.onOff.onOff$Changed.on(async value => {
+      if (!value || triggering) return;
+      triggering = true;
+      try {
+        for (const action of scene.actions) {
+          await registry.set(action.device, action.capability, action.value);
+        }
+      } finally {}
+      setTimeout(async () => {
+        try { await endpoint.set({ onOff: { onOff: false } }); } catch {}
+        triggering = false;
+      }, 1000);
+    });
 
-    const sw = acc.addService(Service.Switch, scene.name);
-
-    sw.getCharacteristic(Characteristic.On)
-      .on('get', cb => cb(null, false))
-      .on('set', (val, cb) => {
-        cb();
-        if (!val) return;
-        (async () => {
-          for (const action of scene.actions) {
-            await registry.set(action.device, action.capability, action.value);
-          }
-        })().catch(console.error);
-        // Auto-reset to off so it behaves like a button
-        setTimeout(() => sw.updateCharacteristic(Characteristic.On, false), 1000);
-      });
-
-    this._bridge.addBridgedAccessory(acc);
     console.log(`[Hazel] Registered scene: ${scene.name}`);
   }
 
-  start() {
-    const publishOpts = {
-      username: this.config.username,
-      pincode: this.config.pin,
-      port: this.config.port || 51987,
-      category: Categories.BRIDGE,
-    };
-    // Bind to a specific IP when the machine has multiple interfaces (tailscale, docker, etc.)
-    if (this.config.bind) publishOpts.bind = this.config.bind;
-
-    this._bridge.publish(publishOpts);
-
-    console.log(`[Hazel] Bridge "${this.config.name}" started on port ${publishOpts.port}`);
-    console.log(`[Hazel] Add to HomeKit with PIN: ${this.config.pin}`);
+  async start() {
+    await this._server.start();
+    const port = this.config.port || 5540;
+    const passcode = this.config.passcode || 20202021;
+    const discriminator = this.config.discriminator || 3840;
+    console.log(`[Hazel] Matter bridge started on port ${port}`);
+    console.log(`[Hazel] Passcode: ${passcode} · Discriminator: ${discriminator}`);
+    console.log(`[Hazel] QR code printed above — scan with Home / Google Home / Alexa app`);
   }
 
-  getSetupURI() {
-    try { return this._bridge.setupURI(); } catch { return null; }
+  getCommissioningInfo() {
+    return {
+      passcode: this.config.passcode || 20202021,
+      discriminator: this.config.discriminator || 3840,
+      port: this.config.port || 5540,
+      commissioned: this._server?.lifecycle?.isCommissioned ?? false,
+    };
   }
 }
 

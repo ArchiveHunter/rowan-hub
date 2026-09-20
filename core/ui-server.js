@@ -1,7 +1,6 @@
 const express = require('express');
 const path = require('path');
 const os = require('os');
-const QRCode = require('qrcode');
 const logger = require('./logger');
 const configManager = require('./config-manager');
 const automationsManager = require('./automations-manager');
@@ -79,14 +78,10 @@ function startUiServer(registry, config, scheduler, bridge) {
     res.render('logs', { page: 'logs' });
   });
 
-  app.get('/system', async (req, res) => {
+  app.get('/system', (req, res) => {
     const cfg = configManager.load();
-    let setupQR = null;
-    if (bridge) {
-      const uri = bridge.getSetupURI();
-      if (uri) setupQR = await QRCode.toDataURL(uri, { margin: 2, width: 180, color: { dark: '#000000', light: '#ffffff' } }).catch(() => null);
-    }
-    res.render('system', { bridge: cfg.bridge, location: cfg.location || {}, page: 'system', setupQR });
+    const commissioningInfo = bridge ? bridge.getCommissioningInfo() : null;
+    res.render('system', { bridge: cfg.bridge, location: cfg.location || {}, page: 'system', commissioningInfo });
   });
 
   // ─── API: devices ────────────────────────────────────────────────────────────
@@ -156,9 +151,9 @@ function startUiServer(registry, config, scheduler, bridge) {
     }
 
     if (!enabled) {
-      bridge.removeDevice(req.params.id);
+      await bridge.removeDevice(req.params.id);
       registry.unregister(req.params.id);
-      return res.json({ ok: true, message: 'Device disabled and removed from HomeKit.' });
+      return res.json({ ok: true, message: 'Device disabled and removed from Matter.' });
     }
 
     // Enable: initialise the plugin driver and add to bridge + registry live
@@ -176,8 +171,8 @@ function startUiServer(registry, config, scheduler, bridge) {
     try {
       const driver = await plugin.init(deviceConfig, globalConfig);
       registry.register(deviceConfig.id, deviceConfig, driver);
-      bridge.addDevice(deviceConfig, driver);
-      return res.json({ ok: true, message: 'Device enabled and added to HomeKit.' });
+      await bridge.addDevice(deviceConfig, driver);
+      return res.json({ ok: true, message: 'Device enabled and added to Matter.' });
     } catch (e) {
       return res.status(500).json({ error: `Failed to initialise device: ${e.message}` });
     }
