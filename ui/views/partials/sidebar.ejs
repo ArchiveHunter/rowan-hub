@@ -1,0 +1,91 @@
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <img src="/hazel.png" alt="Hazel" class="logo-img">
+    <span class="logo-text">Hazel</span>
+    <span class="logo-version">v0.1</span>
+  </div>
+
+  <nav class="sidebar-nav">
+
+    <a href="/dashboard" class="nav-item <%= locals.page === 'dashboard' ? 'active' : '' %>">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="1" y="1" width="6" height="6" rx="1"/>
+        <rect x="9" y="1" width="6" height="6" rx="1"/>
+        <rect x="1" y="9" width="6" height="6" rx="1"/>
+        <rect x="9" y="9" width="6" height="6" rx="1"/>
+      </svg>
+      Dashboard
+    </a>
+
+    <div class="nav-section">Manage</div>
+
+    <a href="/devices" class="nav-item <%= locals.page === 'devices' ? 'active' : '' %>">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="1" y="3" width="14" height="10" rx="1.5"/>
+        <path d="M4 6h2M4 9h1"/>
+        <circle cx="11" cy="7.5" r="1.5"/>
+        <path d="M9.5 10.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5"/>
+      </svg>
+      Devices
+    </a>
+
+    <a href="/plugins" class="nav-item <%= locals.page === 'plugins' ? 'active' : '' %>">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 2h2a2 2 0 0 1 2 2v2"/>
+        <path d="M14 8v2a2 2 0 0 1-2 2h-2"/>
+        <path d="M6 14H4a2 2 0 0 1-2-2v-2"/>
+        <path d="M2 8V6a2 2 0 0 1 2-2h2"/>
+        <circle cx="8" cy="8" r="2"/>
+      </svg>
+      Plugins
+    </a>
+
+    <a href="/scenes" class="nav-item <%= locals.page === 'scenes' ? 'active' : '' %>">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="8 1 10.5 5.5 16 6.4 12 10.3 12.9 15.8 8 13.2 3.1 15.8 4 10.3 0 6.4 5.5 5.5"/>
+      </svg>
+      Scenes
+    </a>
+
+    <a href="/automations" class="nav-item <%= locals.page === 'automations' ? 'active' : '' %>">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="8" cy="8" r="6"/><polyline points="8 5 8 8 10 10"/>
+      </svg>
+      Automations
+    </a>
+
+    <div class="nav-section">System</div>
+
+    <a href="/logs" class="nav-item <%= locals.page === 'logs' ? 'active' : '' %>">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 3h12M2 6h8M2 9h10M2 12h6"/>
+      </svg>
+      Logs
+    </a>
+
+    <a href="/system" class="nav-item <%= locals.page === 'system' ? 'active' : '' %>">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="8" cy="8" r="2.5"/>
+        <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.42 1.42M11.53 11.53l1.42 1.42M3.05 12.95l1.42-1.42M11.53 4.47l1.42-1.42"/>
+      </svg>
+      System
+    </a>
+
+  </nav>
+
+  <div class="sidebar-footer">
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+      <svg class="icon-sun" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <circle cx="8" cy="8" r="3"/>
+        <path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.22 3.22l1.06 1.06M11.72 11.72l1.06 1.06M3.22 12.78l1.06-1.06M11.72 4.28l1.06-1.06"/>
+      </svg>
+      <svg class="icon-moon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <path d="M13.5 10A6 6 0 0 1 6 2.5a6 6 0 1 0 7.5 7.5z"/>
+      </svg>
+    </button>
+    <span class="sidebar-status" id="sidebar-status">
+      <span class="status-dot"></span>
+      <span class="status-label">Online</span>
+    </span>
+  </div>
+</aside>

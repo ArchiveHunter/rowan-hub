@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body>
+<div class="app-layout">
+  <%- include('partials/sidebar', { page: 'dashboard' }) %>
+  <main class="main-content">
+    <div class="page-container">
+
+      <div class="page-header">
+        <h1>Dashboard</h1>
+        <div class="header-stats">
+          <span class="stat-pill">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1" y="3" width="14" height="10" rx="1.5"/></svg>
+            <%= devices.length %> device<%= devices.length !== 1 ? 's' : '' %>
+          </span>
+          <%
+            var onlineCount = devices.filter(function(d) { return d.state && Object.keys(d.state).length > 0; }).length;
+          %>
+          <span class="stat-pill stat-pill--success">
+            <span class="status-dot"></span>
+            <%= onlineCount %> online
+          </span>
+        </div>
+      </div>
+
+      <% if (devices.length === 0) { %>
+        <div class="empty-state">
+          <svg width="48" height="48" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.3">
+            <rect x="1" y="3" width="14" height="10" rx="1.5"/>
+            <path d="M4 6h2M4 9h1"/>
+            <circle cx="11" cy="7.5" r="1.5"/>
+          </svg>
+          <p>No devices configured.</p>
+          <a href="/devices" class="btn btn-primary">Add a device</a>
+        </div>
+      <% } else { %>
+      <div class="device-grid">
+        <% devices.forEach(function(device) { %>
+          <%
+            var hasBrightness = device.capabilities.includes('brightness');
+            var hasColor = device.capabilities.includes('color');
+            var hasPresets = device.presets && device.presets.length > 0;
+            var hue = device.state.hue || 0;
+            var sat = device.state.saturation || 100;
+            var hsl = hasColor ? 'hsl(' + hue + ',' + sat + '%,50%)' : '#888';
+            var isOn = !!device.state.on;
+            var hasState = device.state && Object.keys(device.state).length > 0;
+          %>
+          <div class="device-card" data-device-id="<%= device.id %>" data-on="<%= isOn ? 'true' : 'false' %>">
+
+            <div class="card-header">
+              <div class="card-header-left">
+                <span class="plugin-badge plugin-badge--<%= device.plugin %>"><%= device.plugin %></span>
+                <span class="device-name"><%= device.name %></span>
+              </div>
+              <button
+                class="power-btn<%= isOn ? ' power-btn--on' : '' %>"
+                data-device-id="<%= device.id %>"
+                aria-label="Toggle <%= device.name %>"
+                aria-pressed="<%= isOn ? 'true' : 'false' %>"
+                title="<%= isOn ? 'Turn off' : 'Turn on' %>"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                  <line x1="12" y1="2" x2="12" y2="12"/>
+                </svg>
+              </button>
+            </div>
+
+            <% if (hasBrightness) { %>
+            <div class="control-row">
+              <span class="control-label">Brightness</span>
+              <input
+                type="range"
+                class="brightness-slider"
+                data-device-id="<%= device.id %>"
+                min="0" max="100"
+                value="<%= device.state.brightness !== undefined ? device.state.brightness : 100 %>"
+                aria-label="Brightness for <%= device.name %>"
+              >
+            </div>
+            <% } %>
+
+            <% if (hasColor) { %>
+            <div class="control-row">
+              <span class="control-label">Colour</span>
+              <div class="color-swatch-wrap">
+                <div
+                  class="color-swatch"
+                  data-device-id="<%= device.id %>"
+                  style="background: <%= hsl %>;"
+                  title="Pick colour"
+                  role="button"
+                  tabindex="0"
+                ></div>
+                <input
+                  type="color"
+                  class="color-input"
+                  data-device-id="<%= device.id %>"
+                  aria-hidden="true"
+                  tabindex="-1"
+                >
+              </div>
+            </div>
+            <% } %>
+
+            <% if (hasPresets) { %>
+            <div class="preset-row">
+              <% device.presets.forEach(function(presetName) { %>
+                <button
+                  class="preset-btn<%= device.state.activePresetName === presetName ? ' preset-btn--active' : '' %>"
+                  data-device-id="<%= device.id %>"
+                  data-preset="<%= presetName %>"
+                ><%= presetName %></button>
+              <% }); %>
+            </div>
+            <% } %>
+
+            <div class="card-footer">
+              <span class="status-dot health-dot" data-device-id="<%= device.id %>"></span>
+              <span><%= device.plugin %></span>
+              <span class="separator">·</span>
+              <span class="health-label" data-device-id="<%= device.id %>">–</span>
+            </div>
+
+          </div>
+        <% }); %>
+      </div>
+      <% } %>
+
+      <% if (scenes.length > 0) { %>
+      <div class="section-header" style="margin-top:28px">
+        <span class="section-title">Scenes</span>
+        <a href="/scenes" class="section-link">Manage</a>
+      </div>
+      <div class="scene-strip">
+        <% scenes.forEach(function(scene) { %>
+        <button class="scene-strip-btn" data-scene-id="<%= scene.id %>">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><polygon points="8 1 10.5 5.5 16 6.4 12 10.3 12.9 15.8 8 13.2 3.1 15.8 4 10.3 0 6.4 5.5 5.5"/></svg>
+          <%= scene.name %>
+        </button>
+        <% }); %>
+      </div>
+      <% } %>
+
+    </div>
+  </main>
+</div>
+<script>
+  window.INITIAL_HEALTH = <%- JSON.stringify(
+    devices.reduce(function(acc, d) { acc[d.id] = d.lastSeen; return acc; }, {})
+  ) %>;
+</script>
+<script src="/js/main.js"></script>
+<script src="/js/dashboard.js"></script>
+</body>
+</html>

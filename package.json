@@ -1,0 +1,20 @@
+{
+  "name": "hazel",
+  "version": "0.1.0",
+  "description": "A smarter HomeKit bridge",
+  "main": "hazel.js",
+  "scripts": {
+    "start": "node hazel.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "ejs": "^3.1.9",
+    "express": "^4.18.0",
+    "hap-nodejs": "^0.12.0",
+    "js-yaml": "^4.1.0",
+    "mqtt": "^5.0.0",
+    "qrcode": "^1.5.4",
+    "suncalc": "^2.0.1",
+    "ws": "^8.18.0"
+  }
+}

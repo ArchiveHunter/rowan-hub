@@ -1,0 +1,103 @@
+location:
+  latitude: 51.5      # your latitude  (used for sunrise/sunset automations)
+  longitude: -0.12    # your longitude
+
+bridge:
+  name: Hazel
+  username: "CC:22:3D:E3:CE:30"  # HAP bridge MAC — change if running multiple instances
+  pin: "031-45-154"
+  port: 51826
+
+ui:
+  port: 3088
+
+# ── Plugin global settings ────────────────────────────────────────────────────
+# Only required sections for plugins you actually use
+
+ewelink:
+  username: "your@email.com"
+  password: "yourpassword"
+  region: "eu"   # eu | us | as | cn
+
+mqtt:
+  broker: "mqtt://192.168.1.5"
+  username: ""
+  password: ""
+
+zigbee2mqtt:
+  broker: "mqtt://192.168.1.5"
+  topic_prefix: "zigbee2mqtt"
+
+# ── Plugin enable/disable ─────────────────────────────────────────────────────
+plugins:
+  wled: { enabled: true }
+  tasmota: { enabled: true }
+  ewelink: { enabled: true }
+  shelly: { enabled: false }
+  mqtt: { enabled: false }
+  zigbee2mqtt: { enabled: false }
+  daikin: { enabled: false }
+
+# ── Devices ───────────────────────────────────────────────────────────────────
+devices:
+  # WLED LED strip
+  - plugin: wled
+    id: living-room-wall
+    name: Living Room Wall
+    host: 192.168.1.100
+    presets:
+      - Standard
+      - Rainbow
+
+  # Tasmota smart plug
+  - plugin: tasmota
+    id: front-socket
+    name: Front Socket
+    host: 192.168.1.101
+
+  # eWeLink single-channel (MINIR4)
+  - plugin: ewelink
+    id: driveway-lights
+    name: Driveway Lights
+    device_id: "100278564d"
+
+  # eWeLink dual-channel (TX2C) — one entry per channel
+  - plugin: ewelink
+    id: downlights
+    name: Downlights
+    device_id: "100102920d"
+    channel: 0
+
+  - plugin: ewelink
+    id: pendants
+    name: Pendants
+    device_id: "100102920d"
+    channel: 1
+
+  # Shelly relay (Gen1 or Gen2 — auto-detected)
+  - plugin: shelly
+    id: garage-door
+    name: Garage Door
+    host: 192.168.1.102
+    generation: auto
+    component: relay
+    channel: 0
+
+  # Generic MQTT device
+  - plugin: mqtt
+    id: garden-sensor
+    name: Garden Sensor
+    topic_prefix: home/garden-sensor
+    capabilities: temperature, humidity
+
+  # Zigbee2MQTT device
+  - plugin: zigbee2mqtt
+    id: office-motion
+    name: Office Motion
+    device_name: office_motion_sensor
+
+  # Daikin AC (legacy firmware only)
+  - plugin: daikin
+    id: living-room-ac
+    name: Living Room AC
+    host: 192.168.1.103

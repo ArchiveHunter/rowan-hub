@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body>
+<div class="app-layout">
+  <%- include('partials/sidebar', { page: 'scenes' }) %>
+  <main class="main-content">
+    <div class="page-container">
+
+      <div class="page-header">
+        <h1>Scenes</h1>
+        <div class="header-actions">
+          <button class="btn btn-primary" id="btn-add-scene">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
+            Add Scene
+          </button>
+        </div>
+      </div>
+
+      <% if (scenes.length === 0) { %>
+        <div class="empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="0.3">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+          <p>No scenes yet. Create one to control multiple devices at once.</p>
+          <button class="btn btn-primary" id="btn-add-scene-empty">Add Scene</button>
+        </div>
+      <% } else { %>
+      <div class="scene-grid">
+        <% scenes.forEach(function(scene) { %>
+        <div class="scene-card" data-scene-id="<%= scene.id %>">
+          <div class="scene-card-body">
+            <div class="scene-name"><%= scene.name %></div>
+            <div class="scene-summary text-muted">
+              <%= scene.actions.length %> action<%= scene.actions.length !== 1 ? 's' : '' %>
+              <% scene.actions.slice(0,3).forEach(function(a) { %>
+                <div class="scene-action-hint">· <%= a.device %> → <%= String(a.value) === 'true' ? 'on' : String(a.value) === 'false' ? 'off' : a.value %></div>
+              <% }); %>
+              <% if (scene.actions.length > 3) { %><div class="scene-action-hint text-muted">+ <%= scene.actions.length - 3 %> more</div><% } %>
+            </div>
+          </div>
+          <div class="scene-card-footer">
+            <button class="btn-icon btn-edit-scene" data-id="<%= scene.id %>" title="Edit">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13l-3 1 1-3 8.5-8.5z"/>
+              </svg>
+            </button>
+            <button class="btn-icon btn-delete-scene" data-id="<%= scene.id %>" title="Delete">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="2 4 14 4"/><path d="M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M6 7v5M10 7v5"/><rect x="3" y="4" width="10" height="10" rx="1"/>
+              </svg>
+            </button>
+            <button class="btn btn-primary btn-trigger-scene" data-id="<%= scene.id %>">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="4 2 14 8 4 14"/></svg>
+              Run
+            </button>
+          </div>
+        </div>
+        <% }); %>
+      </div>
+      <% } %>
+
+    </div>
+  </main>
+</div>
+
+<!-- Add / Edit modal -->
+<div class="modal-overlay" id="scene-modal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <span class="modal-title" id="scene-modal-title">Add Scene</span>
+      <button class="modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="scene-id">
+      <div class="form-group">
+        <label class="form-label">Name</label>
+        <input type="text" class="form-input" id="scene-name" placeholder="e.g. Goodnight, Movie Time">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Actions</label>
+        <div id="scene-actions-list"></div>
+        <button class="btn btn-secondary btn-sm" id="btn-add-scene-action" style="margin-top:8px">+ Add action</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary modal-close">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-scene">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.DEVICES = <%- JSON.stringify(devices) %>;
+</script>
+<script src="/js/scenes.js"></script>
+</body>
+</html>

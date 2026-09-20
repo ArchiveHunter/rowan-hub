@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body>
+  <div class="app-layout">
+    <%- include('partials/sidebar', { page: locals.page || '' }) %>
+    <main class="main-content">
+      <div class="page-container">
+        <%- body %>
+      </div>
+    </main>
+  </div>
+  <script src="/js/main.js"></script>
+</body>
+</html>

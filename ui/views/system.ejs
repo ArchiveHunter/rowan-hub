@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body>
+<div class="app-layout">
+  <%- include('partials/sidebar', { page: 'system' }) %>
+  <main class="main-content">
+    <div class="page-container">
+
+      <div class="page-header">
+        <h1>System</h1>
+      </div>
+
+      <div class="two-col">
+
+        <!-- Bridge info -->
+        <div class="card">
+          <div class="card-title">Bridge Info</div>
+
+          <div class="stat-item">
+            <span class="stat-label">Bridge Name</span>
+            <span class="stat-value"><%= bridge.name %></span>
+          </div>
+
+          <div class="stat-item">
+            <span class="stat-label">Bridge MAC</span>
+            <span class="stat-value mono"><%= bridge.username %></span>
+          </div>
+
+          <div class="stat-item">
+            <span class="stat-label">HAP Port</span>
+            <span class="stat-value mono"><%= bridge.port %></span>
+          </div>
+
+          <div class="stat-item" style="border-bottom:none;padding-bottom:0">
+            <span class="stat-label">HomeKit PIN</span>
+            <span class="stat-value"></span>
+          </div>
+
+          <div class="homekit-pin-display">
+            <% var pin = bridge.pin || '000-00-000'; %>
+            <span class="pin-segment"><%= pin.split('-')[0] %></span>
+            <span class="pin-dash">–</span>
+            <span class="pin-segment"><%= pin.split('-')[1] %></span>
+            <span class="pin-dash">–</span>
+            <span class="pin-segment"><%= pin.split('-')[2] %></span>
+          </div>
+
+          <div id="homekit-qr" class="homekit-qr-area">
+            <% if (setupQR) { %>
+            <div class="qr-code-wrap">
+              <img src="<%= setupQR %>" width="180" height="180" alt="HomeKit QR Code" style="display:block;border-radius:8px;">
+              <span class="qr-hint">Scan with iPhone Camera to pair</span>
+            </div>
+            <% } else { %>
+            <div class="qr-placeholder">
+              <svg width="32" height="32" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.4">
+                <rect x="1" y="1" width="6" height="6" rx="1"/><rect x="3" y="3" width="2" height="2" fill="currentColor" stroke="none"/>
+                <rect x="9" y="1" width="6" height="6" rx="1"/><rect x="11" y="3" width="2" height="2" fill="currentColor" stroke="none"/>
+                <rect x="1" y="9" width="6" height="6" rx="1"/><rect x="3" y="11" width="2" height="2" fill="currentColor" stroke="none"/>
+                <path d="M9 9h2v2H9zM11 11h2v2h-2zM13 9h2v2h-2zM9 13h4v2H9zM13 13h2v2h-2z"/>
+              </svg>
+              <span>QR code available after bridge pairs</span>
+            </div>
+            <% } %>
+          </div>
+        </div>
+
+        <!-- Live system stats -->
+        <div class="card">
+          <div class="card-title">System Stats</div>
+
+          <div class="stat-item">
+            <span class="stat-label">Hazel Uptime</span>
+            <span class="stat-value" id="stat-uptime">–</span>
+          </div>
+
+          <div class="stat-item">
+            <span class="stat-label">Memory Usage</span>
+            <span class="stat-value" id="stat-mem">–</span>
+          </div>
+          <div class="progress-bar" style="margin: -8px 0 12px">
+            <div class="progress-fill" id="stat-mem-bar" style="width:0%"></div>
+          </div>
+
+          <div class="stat-item">
+            <span class="stat-label">CPU Load (1m)</span>
+            <span class="stat-value" id="stat-cpu">–</span>
+          </div>
+
+          <div class="stat-item">
+            <span class="stat-label">Node.js</span>
+            <span class="stat-value mono" id="stat-node">–</span>
+          </div>
+
+          <div class="stat-item">
+            <span class="stat-label">Hostname</span>
+            <span class="stat-value mono" id="stat-host">–</span>
+          </div>
+
+          <div class="stat-item" style="border-bottom:none">
+            <span class="stat-label">Devices</span>
+            <span class="stat-value" id="stat-devices">–</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Location -->
+      <div class="card" style="margin-top:24px">
+        <div class="card-title">Location</div>
+        <p class="text-muted" style="font-size:13px;margin-bottom:16px">Used to calculate accurate sunrise and sunset times for automations.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:flex-end">
+          <div>
+            <label class="form-label">Latitude</label>
+            <input type="number" class="form-input" id="loc-lat" step="0.0001" value="<%= location.latitude || '' %>" placeholder="e.g. 51.5074">
+          </div>
+          <div>
+            <label class="form-label">Longitude</label>
+            <input type="number" class="form-input" id="loc-lon" step="0.0001" value="<%= location.longitude || '' %>" placeholder="e.g. -0.1278">
+          </div>
+          <button class="btn btn-primary" id="btn-save-location">Save</button>
+        </div>
+        <p class="text-muted" style="font-size:11px;margin-top:8px">Find your coordinates by searching your town name on Google Maps — right-click the pin and copy the coordinates.</p>
+      </div>
+
+      <!-- Danger zone -->
+      <div class="danger-zone" style="margin-top:24px">
+        <div class="danger-zone-header">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 1L1 14h14L8 1z"/><line x1="8" y1="6" x2="8" y2="9.5"/><circle cx="8" cy="11.5" r=".5" fill="currentColor"/>
+          </svg>
+          Danger Zone
+        </div>
+        <div class="danger-zone-body">
+          <div>
+            <div class="danger-action-name">Restart Hazel</div>
+            <div class="text-muted" style="font-size:12px;margin-top:2px">Restarts the Hazel process. Your HomeKit accessories will be momentarily unavailable.</div>
+          </div>
+          <button class="btn btn-danger" id="btn-restart">Restart Hazel</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+<script src="/js/main.js"></script>
+<script src="/js/system.js"></script>
+</body>
+</html>

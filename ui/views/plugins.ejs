@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body>
+<div class="app-layout">
+  <%- include('partials/sidebar', { page: 'plugins' }) %>
+  <main class="main-content">
+    <div class="page-container">
+
+      <div class="page-header">
+        <h1>Plugins</h1>
+      </div>
+
+      <div class="plugin-grid">
+        <% plugins.forEach(function(plugin) { %>
+        <div class="plugin-card" data-plugin="<%= plugin.name %>">
+
+          <div class="plugin-card-header">
+            <div class="plugin-icon" style="background: <%= plugin.color %>">
+              <%= plugin.label.charAt(0).toUpperCase() %>
+            </div>
+            <div class="plugin-card-meta">
+              <div class="plugin-card-name"><%= plugin.label %></div>
+              <div class="plugin-card-id text-muted"><%= plugin.name %></div>
+            </div>
+            <span class="device-count-badge"><%= plugin.deviceCount %> device<%= plugin.deviceCount !== 1 ? 's' : '' %></span>
+            <label class="toggle-switch" title="<%= plugin.enabled ? 'Disable' : 'Enable' %> plugin">
+              <input type="checkbox" class="plugin-toggle" data-plugin="<%= plugin.name %>" <%= plugin.enabled ? 'checked' : '' %>>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <% if (plugin.globalFields && plugin.globalFields.length > 0) { %>
+          <div class="plugin-settings<%= plugin.enabled ? '' : ' plugin-settings--disabled' %>">
+            <div class="plugin-settings-label">Settings</div>
+            <form class="plugin-settings-form" data-plugin="<%= plugin.name %>">
+              <% plugin.globalFields.forEach(function(field) { %>
+              <div class="form-group">
+                <label for="<%= plugin.name %>-<%= field.name %>"><%= field.label %><% if (field.required) { %> <span class="required">*</span><% } %></label>
+                <% if (field.type === 'select') { %>
+                <select id="<%= plugin.name %>-<%= field.name %>" name="<%= field.name %>">
+                  <% (field.options || []).forEach(function(opt) { %>
+                  <option value="<%= opt %>" <%= plugin.globalConfig && plugin.globalConfig[field.name] === opt ? 'selected' : '' %>><%= opt.toUpperCase() %></option>
+                  <% }); %>
+                </select>
+                <% } else { %>
+                <input
+                  type="<%= field.type === 'password' ? 'password' : 'text' %>"
+                  id="<%= plugin.name %>-<%= field.name %>"
+                  name="<%= field.name %>"
+                  value="<%= plugin.globalConfig && plugin.globalConfig[field.name] ? plugin.globalConfig[field.name] : '' %>"
+                  <% if (field.placeholder) { %>placeholder="<%= field.placeholder %>"<% } %>
+                  <% if (field.required) { %>required<% } %>
+                >
+                <% } %>
+              </div>
+              <% }); %>
+              <div class="plugin-settings-footer">
+                <button type="submit" class="btn btn-primary btn--sm">Save Settings</button>
+                <span class="save-status" aria-live="polite"></span>
+              </div>
+            </form>
+          </div>
+          <% } else { %>
+          <div class="plugin-no-settings text-muted">
+            No global settings required.
+          </div>
+          <% } %>
+
+        </div>
+        <% }); %>
+      </div>
+
+    </div>
+  </main>
+</div>
+<script src="/js/main.js"></script>
+<script>
+(function() {
+  document.querySelectorAll('.plugin-toggle').forEach(function(toggle) {
+    toggle.addEventListener('change', async function() {
+      const pluginName = toggle.dataset.plugin;
+      const enabled = toggle.checked;
+      const card = toggle.closest('.plugin-card');
+      const settingsEl = card.querySelector('.plugin-settings');
+      try {
+        await api('PUT', '/api/plugins/' + pluginName + '/toggle', { enabled });
+        if (settingsEl) {
+          settingsEl.classList.toggle('plugin-settings--disabled', !enabled);
+        }
+        toggle.closest('label').title = enabled ? 'Disable plugin' : 'Enable plugin';
+        showToast((enabled ? 'Enabled' : 'Disabled') + ' ' + pluginName + '. Restart Hazel to apply.', 'success');
+      } catch(err) {
+        toggle.checked = !enabled;
+        showToast(err.message, 'error');
+      }
+    });
+  });
+
+  document.querySelectorAll('.plugin-settings-form').forEach(function(form) {
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const pluginName = form.dataset.plugin;
+      const statusEl = form.querySelector('.save-status');
+      const btn = form.querySelector('button[type="submit"]');
+      const data = {};
+      new FormData(form).forEach(function(v, k) { data[k] = v; });
+      btn.disabled = true;
+      statusEl.textContent = 'Saving…';
+      statusEl.style.color = 'var(--text-muted)';
+      try {
+        await api('PUT', '/api/plugins/' + pluginName, data);
+        statusEl.textContent = 'Saved. Restart to apply.';
+        statusEl.style.color = 'var(--success)';
+        showToast('Plugin settings saved. Restart Hazel to apply.', 'success');
+      } catch(err) {
+        statusEl.textContent = 'Error: ' + err.message;
+        statusEl.style.color = 'var(--danger)';
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

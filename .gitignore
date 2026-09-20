@@ -1,0 +1,8 @@
+node_modules/
+persist/
+config.yaml
+config.yaml.bak
+*.bak
+.env
+automations.json
+scenes.json
