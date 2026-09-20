@@ -1,16 +1,35 @@
 const express = require('express');
+const https = require('https');
 const path = require('path');
+const fs = require('fs');
 const os = require('os');
 const QRCode = require('qrcode');
+const selfsigned = require('selfsigned');
 const logger = require('./logger');
 const configManager = require('./config-manager');
 const automationsManager = require('./automations-manager');
 const scenesManager = require('./scenes-manager');
 const pushManager = require('./push-manager');
 
+const CERT_PATH = path.join(__dirname, '..', 'hazel-cert.pem');
+const KEY_PATH  = path.join(__dirname, '..', 'hazel-key.pem');
+
+async function loadOrGenerateCert() {
+  if (fs.existsSync(CERT_PATH) && fs.existsSync(KEY_PATH)) {
+    return { cert: fs.readFileSync(CERT_PATH), key: fs.readFileSync(KEY_PATH) };
+  }
+  console.log('[Hazel] Generating self-signed TLS certificate…');
+  const attrs = [{ name: 'commonName', value: 'hazel.local' }];
+  const opts  = { days: 3650, keySize: 2048 };
+  const pems  = await selfsigned.generate(attrs, opts);
+  fs.writeFileSync(CERT_PATH, pems.cert);
+  fs.writeFileSync(KEY_PATH,  pems.private);
+  return { cert: pems.cert, key: pems.private };
+}
+
 const startTime = Date.now();
 
-function startUiServer(registry, config, scheduler, bridge) {
+async function startUiServer(registry, config, scheduler, bridge) {
   const app = express();
   const port = config.port || 3088;
 
@@ -369,6 +388,26 @@ function startUiServer(registry, config, scheduler, bridge) {
   app.listen(port, () => {
     console.log(`[Hazel] Web UI → http://localhost:${port}`);
   });
+
+  // HTTPS — required for push notifications and service workers on phones
+  const httpsPort = config.httpsPort || 3443;
+  let certConfig;
+  if (config.certFile && config.keyFile) {
+    try {
+      certConfig = { cert: fs.readFileSync(config.certFile), key: fs.readFileSync(config.keyFile) };
+      console.log('[Hazel] HTTPS using configured certificate');
+    } catch (e) {
+      console.warn(`[Hazel] Could not load TLS cert: ${e.message} — HTTPS disabled`);
+    }
+  } else {
+    certConfig = await loadOrGenerateCert();
+  }
+
+  if (certConfig) {
+    https.createServer(certConfig, app).listen(httpsPort, () => {
+      console.log(`[Hazel] Web UI (HTTPS) → https://localhost:${httpsPort}`);
+    });
+  }
 }
 
 module.exports = { startUiServer };
