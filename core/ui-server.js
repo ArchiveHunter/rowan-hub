@@ -139,8 +139,6 @@ async function startUiServer(registry, config, scheduler, bridge) {
 
   // ─── API: config ─────────────────────────────────────────────────────────────
 
-  app.get('/api/config', (req, res) => res.json(configManager.load()));
-
   app.post('/api/devices', (req, res) => {
     try {
       const device = configManager.addDevice(req.body);
