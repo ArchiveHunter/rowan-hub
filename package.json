@@ -1,6 +1,6 @@
 {
   "name": "rowan-hub",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Matter bridge — multi-platform smart home bridge (Apple Home, Google Home, Alexa)",
   "main": "rowan-hub.js",
   "scripts": {
