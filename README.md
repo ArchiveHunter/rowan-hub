@@ -1,31 +1,21 @@
-<img src="hazel.png" alt="Hazel" width="120">
+<img src="hero-logo.png" alt="Rowan Hub" width="320">
 
-# Hazel
+# Rowan Hub
 
-A custom Matter bridge built from scratch. Runs as a single Node.js process, manages smart home devices across multiple protocols, and exposes them to any Matter-compatible platform — Apple Home, Google Home, and Amazon Alexa — simultaneously, with one commissioning scan.
+A self-hosted Matter bridge that connects your smart home devices to Apple Home, Google Home, and Amazon Alexa — simultaneously, with a single QR code scan.
 
-**Built by [ArchiveHunter](https://github.com/ArchiveHunter) and Rowan**
-
-> This is a recode of the original [Hazel](https://github.com/ArchiveHunter/hazel). The bridge layer has been rewritten around the open Matter standard. The plugin system, device registry, web UI, scenes, automations, and scheduler are carried forward unchanged.
+Rowan Hub runs locally on any Linux machine, handles its own device polling and state management, and provides a clean web UI for configuration, logging, and system management.
 
 ---
 
-## What it does
+## Why Rowan Hub
 
-Hazel exposes your smart home devices to any Matter-compatible platform. It runs locally, handles its own device polling and state management, and provides a web UI for configuration, logging, and system management.
+Most smart home bridges lock you into one ecosystem. Rowan Hub uses the open Matter standard so your devices appear in all three major platforms at once — no cloud dependency, no skill certification, no integration config.
 
-Devices are controlled through **plugins** — small drivers that know how to talk to a specific device type. Plugins can be enabled or disabled from the UI without touching config files. Individual devices can also be enabled or disabled independently, so you can configure devices in advance and activate them when needed.
-
----
-
-## Why Matter
-
-Matter is the open smart home standard backed by Apple, Google, Amazon, Samsung, and the Connectivity Standards Alliance. A Matter bridge:
-
-- **Pairs once** — one QR code scan works for all platforms at the same time
-- **Runs locally** — no cloud dependency for device control
-- **No skill certification** — works in Alexa without publishing an Alexa skill
-- **No integration config** — Google Home and Apple Home discover the bridge natively
+- **Pair once** — one QR code commissions to every platform at the same time
+- **Runs locally** — no cloud required for device control
+- **No Alexa skill needed** — Matter bridges work natively without publishing
+- **Devices, scenes, and automations** — managed in one place, visible everywhere
 
 ---
 
@@ -58,7 +48,7 @@ Matter is the open smart home standard backed by Apple, Google, Amazon, Samsung,
 
 ## Capability → Matter device type
 
-Hazel maps plugin capabilities to Matter device types automatically:
+Rowan Hub maps plugin capabilities to Matter device types automatically:
 
 | Capabilities | Matter device type |
 |---|---|
@@ -96,7 +86,7 @@ pm2 startup
 
 ### avahi-daemon
 
-Hazel relies on avahi for mDNS so Matter controllers can discover the bridge on the local network. Without it, commissioning will fail.
+Rowan Hub relies on avahi for mDNS so Matter controllers can discover the bridge on the local network. Without it, commissioning will fail.
 
 ```bash
 sudo apt install avahi-daemon
@@ -114,7 +104,7 @@ Copy `config.example.yaml` to `config.yaml` and edit it. The file is gitignored 
 
 ```yaml
 bridge:
-  name: Hazel
+  name: Rowan Hub
   passcode: 20202021   # 8-digit pairing code — choose any number (avoid 11111111, 22222222, etc.)
   discriminator: 3840  # 0–4095, used for mDNS discovery; change if running multiple bridges on the same network
   port: 5540           # Matter UDP port (default 5540; must be unique per bridge on the host)
@@ -283,7 +273,7 @@ State JSON keys:
 - `temperature` → °C (number)
 - `humidity` → % (number)
 
-Set `capabilities` in the device config as a comma-separated list to tell Hazel what Matter device types to expose.
+Set `capabilities` in the device config as a comma-separated list to tell Rowan Hub what Matter device types to expose.
 
 ### Zigbee2MQTT
 
@@ -304,7 +294,7 @@ Exposes a switch representing HVAC on/off. Full thermostat cluster support (targ
 
 ## Web UI
 
-Hazel serves two endpoints:
+Rowan Hub serves two endpoints:
 
 | URL | Purpose |
 |---|---|
@@ -316,14 +306,14 @@ A self-signed TLS certificate is generated automatically on first start and save
 **To trust the certificate on iOS (recommended for PWA install):**
 1. Open `https://{host}:3443` in Safari
 2. Tap **Show Details → visit this website** to bypass the warning
-3. Go to **Settings → General → VPN & Device Management** → find the Hazel certificate → tap **Trust**
+3. Go to **Settings → General → VPN & Device Management** → find the Rowan Hub certificate → tap **Trust**
 4. Refresh — the warning will be gone permanently for this device
 
 **To install as a home screen app on iPhone/iPad:**
 - Open `https://{host}:3443` in Safari → **Share → Add to Home Screen**
 - Must be HTTPS — the HTTP address does not support PWA install or push notifications
 
-If you have a proper domain certificate (e.g. from Let's Encrypt), you can point Hazel at it instead of using the self-signed cert:
+If you have a proper domain certificate (e.g. from Let's Encrypt), you can point Rowan Hub at it instead of using the self-signed cert:
 
 ```yaml
 ui:
@@ -349,7 +339,7 @@ ui:
 
 ### First platform
 
-When Hazel starts for the first time (or after a commission reset), a QR code is displayed in the System page of the web UI and printed to the log output. Scan it with any compatible app:
+When Rowan Hub starts for the first time (or after a commission reset), a QR code is displayed in the System page of the web UI and printed to the log output. Scan it with any compatible app:
 
 | Platform | App |
 |---|---|
@@ -380,7 +370,7 @@ Commissioning data is stored in `matter-storage/` alongside the project. This di
 
 To start fresh (wipe all paired platforms and commission again):
 1. Delete the `matter-storage/` directory
-2. Restart Hazel — a new QR code will be printed to the logs
+2. Restart Rowan Hub — a new QR code will be printed to the logs
 3. Re-scan with each platform
 
 ---
@@ -389,7 +379,7 @@ To start fresh (wipe all paired platforms and commission again):
 
 ```
 rowan-hub/
-├── hazel.js                  # Entry point
+├── rowan-hub.js              # Entry point
 ├── config.yaml               # Your config (gitignored)
 ├── config.example.yaml       # Template
 ├── ecosystem.config.js       # PM2 config
@@ -400,6 +390,7 @@ rowan-hub/
 │   ├── device-builder.js     # Matter endpoint construction
 │   ├── config-manager.js     # Config CRUD + plugin schemas
 │   ├── ui-server.js          # Express web server + API
+│   ├── push-manager.js       # Web push notifications + update checks
 │   ├── logger.js             # Console patch + SSE log stream
 │   └── color.js              # RGB ↔ HSL helpers
 ├── plugins/
@@ -467,7 +458,7 @@ module.exports = {
 };
 ```
 
-The driver emits `'state'` whenever device state changes. Hazel syncs that state to the Matter endpoint automatically. Conversely, when a Matter controller changes a device's state, Hazel calls `driver.set()`.
+The driver emits `'state'` whenever device state changes. Rowan Hub syncs that state to the Matter endpoint automatically. Conversely, when a Matter controller changes a device's state, Rowan Hub calls `driver.set()`.
 
 Add the plugin schema to `core/config-manager.js` under `PLUGIN_SCHEMAS` and it will appear in the web UI's add/edit device forms automatically.
 
@@ -482,7 +473,8 @@ Add the plugin schema to `core/config-manager.js` under `PLUGIN_SCHEMAS` and it 
 - [ws](https://github.com/websockets/ws) — WebSocket (WLED, Shelly Gen2)
 - [mqtt](https://github.com/mqttjs/MQTT.js) — MQTT (generic MQTT, Zigbee2MQTT)
 - [suncalc](https://github.com/mourner/suncalc) — Sunrise/sunset times for automations
+- [web-push](https://github.com/web-push-libs/web-push) — Push notifications
 
 ---
 
-*Hazel is a personal homelab project. It is not affiliated with Apple, Google, Amazon, or any device manufacturer.*
+*Rowan Hub is open source software. It is not affiliated with Apple, Google, Amazon, or any device manufacturer.*
