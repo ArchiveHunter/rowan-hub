@@ -9,3 +9,5 @@ scenes.json
 matter-storage/
 push-vapid.json
 push-subscriptions.json
+hazel-cert.pem
+hazel-key.pem
