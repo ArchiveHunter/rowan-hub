@@ -238,14 +238,14 @@
 
   if (restartBtn) {
     restartBtn.addEventListener('click', function () {
-      if (!confirm('Restart Hazel now? HomeKit accessories will be momentarily unavailable.')) return;
+      if (!confirm('Restart Rowan Hub now? HomeKit accessories will be momentarily unavailable.')) return;
 
       restartBtn.disabled = true;
       restartBtn.textContent = 'Restarting…';
 
       fetch('/api/system/restart', { method: 'POST' })
         .then(function () {
-          showToast('Hazel is restarting…', 'warn');
+          showToast('Rowan Hub is restarting…', 'warn');
           clearInterval(statsInterval);
         })
         .catch(function () {

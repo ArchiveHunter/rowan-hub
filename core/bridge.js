@@ -8,7 +8,7 @@ const { OnOffPlugInUnitDevice } = require('@matter/main/devices/on-off-plug-in-u
 const { DeviceCommissioner } = require('@matter/protocol');
 const { buildEndpoints } = require('./device-builder');
 
-class HazelBridge {
+class RowanHubBridge {
   constructor(config) {
     this.config = config;
     this._server = null;
@@ -18,10 +18,9 @@ class HazelBridge {
   }
 
   async init() {
-    // Store matter.js persistence alongside the project
     Environment.default.vars.set('storage.path', path.join(__dirname, '..', 'matter-storage'));
 
-    const uniqueId = 'hazel-bridge';
+    const uniqueId = 'hazel-bridge'; // kept for continuity — changing would wipe commissioning
 
     this._server = await ServerNode.create({
       id: uniqueId,
@@ -33,15 +32,15 @@ class HazelBridge {
         discriminator: this.config.discriminator || 3840,
       },
       productDescription: {
-        name: this.config.name || 'Hazel',
+        name: this.config.name || 'Rowan Hub',
         deviceType: AggregatorEndpoint.deviceType,
       },
       basicInformation: {
-        vendorName: 'Hazel',
+        vendorName: 'Rowan Hub',
         vendorId: VendorId(0xfff1),
-        nodeLabel: this.config.name || 'Hazel',
-        productName: 'Hazel Matter Bridge',
-        productLabel: 'Hazel',
+        nodeLabel: this.config.name || 'Rowan Hub',
+        productName: 'Rowan Hub Matter Bridge',
+        productLabel: 'Rowan Hub',
         productId: 0x8000,
         serialNumber: uniqueId,
         uniqueId,
@@ -59,7 +58,7 @@ class HazelBridge {
     }
     this._deviceEndpoints.set(deviceConfig.id, endpoints);
     const names = endpoints.map(e => e.id).join(', ');
-    console.log(`[Hazel] Registered: ${names}`);
+    console.log(`[Rowan Hub] Registered: ${names}`);
   }
 
   async removeDevice(deviceId) {
@@ -69,7 +68,7 @@ class HazelBridge {
       try { await ep.close(); } catch {}
     }
     this._deviceEndpoints.delete(deviceId);
-    console.log(`[Hazel] Removed from Matter: ${deviceId}`);
+    console.log(`[Rowan Hub] Removed from Matter: ${deviceId}`);
   }
 
   async addScene(scene, registry) {
@@ -81,7 +80,7 @@ class HazelBridge {
           nodeLabel: scene.name,
           productName: scene.name,
           productLabel: scene.name,
-          serialNumber: `hazel-scene-${scene.id}`.slice(0, 32),
+          serialNumber: `rowan-scene-${scene.id}`.slice(0, 32),
           reachable: true,
         },
       }
@@ -103,7 +102,7 @@ class HazelBridge {
       }, 1000);
     });
 
-    console.log(`[Hazel] Registered scene: ${scene.name}`);
+    console.log(`[Rowan Hub] Registered scene: ${scene.name}`);
   }
 
   async start() {
@@ -111,9 +110,9 @@ class HazelBridge {
     const port = this.config.port || 5540;
     const passcode = this.config.passcode || 20202021;
     const discriminator = this.config.discriminator || 3840;
-    console.log(`[Hazel] Matter bridge started on port ${port}`);
-    console.log(`[Hazel] Passcode: ${passcode} · Discriminator: ${discriminator}`);
-    console.log(`[Hazel] QR code printed above — scan with Home / Google Home / Alexa app`);
+    console.log(`[Rowan Hub] Matter bridge started on port ${port}`);
+    console.log(`[Rowan Hub] Passcode: ${passcode} · Discriminator: ${discriminator}`);
+    console.log(`[Rowan Hub] QR code printed above — scan with Home / Google Home / Alexa app`);
   }
 
   async openCommissioningWindow() {
@@ -140,4 +139,4 @@ class HazelBridge {
   }
 }
 
-module.exports = { HazelBridge };
+module.exports = { RowanHubBridge };

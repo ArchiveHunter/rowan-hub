@@ -1,7 +1,7 @@
 module.exports = {
   apps: [{
-    name: 'hazel',
-    script: 'hazel.js',
+    name: 'rowan-hub',
+    script: 'rowan-hub.js',
     cwd: '/root/hazel-matter',
     exec_mode: 'fork',
     autorestart: true,

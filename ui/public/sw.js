@@ -1,11 +1,11 @@
 self.addEventListener('push', e => {
   const data = e.data?.json() ?? {};
   e.waitUntil(
-    self.registration.showNotification(data.title || 'Hazel', {
+    self.registration.showNotification(data.title || 'Rowan Hub', {
       body: data.body || '',
-      icon: data.icon || '/hazel.png',
-      badge: '/hazel.png',
-      tag: data.tag || 'hazel',
+      icon: data.icon || '/rowan-hub.png',
+      badge: '/rowan-hub.png',
+      tag: data.tag || 'rowan-hub',
       renotify: true,
     })
   );

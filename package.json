@@ -1,10 +1,10 @@
 {
-  "name": "hazel-matter",
-  "version": "0.2.0",
+  "name": "rowan-hub",
+  "version": "1.0.0",
   "description": "Matter bridge — multi-platform smart home bridge (Apple Home, Google Home, Alexa)",
-  "main": "hazel.js",
+  "main": "rowan-hub.js",
   "scripts": {
-    "start": "node hazel.js"
+    "start": "node rowan-hub.js"
   },
   "dependencies": {
     "@matter/main": "^0.17.9",

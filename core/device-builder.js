@@ -25,7 +25,7 @@ function bridgeInfo(config, label) {
     nodeLabel: name,
     productName: name,
     productLabel: name,
-    serialNumber: `hazel-${config.id}`.slice(0, 32),
+    serialNumber: `rowan-${config.id}`.slice(0, 32),
     reachable: true,
   };
 }
@@ -303,7 +303,7 @@ function buildPresetEndpoint(deviceConfig, driver, presetName) {
         nodeLabel: label,
         productName: label,
         productLabel: label,
-        serialNumber: `hazel-${id}`.slice(0, 32),
+        serialNumber: `rowan-${id}`.slice(0, 32),
         reachable: true,
       },
     }

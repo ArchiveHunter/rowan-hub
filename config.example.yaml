@@ -3,7 +3,7 @@ location:
   longitude: -0.12    # your longitude
 
 bridge:
-  name: Hazel
+  name: Rowan Hub
   passcode: 20202021   # 8-digit pairing code — choose any number (not 11111111 / 22222222 etc.)
   discriminator: 3840  # 0–4095, used for mDNS discovery; change if running multiple bridges on the same network
   port: 5540           # Matter UDP port (default 5540; must be unique per bridge on the host)

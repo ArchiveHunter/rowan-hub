@@ -11,15 +11,15 @@ const automationsManager = require('./automations-manager');
 const scenesManager = require('./scenes-manager');
 const pushManager = require('./push-manager');
 
-const CERT_PATH = path.join(__dirname, '..', 'hazel-cert.pem');
-const KEY_PATH  = path.join(__dirname, '..', 'hazel-key.pem');
+const CERT_PATH = path.join(__dirname, '..', 'rowan-hub-cert.pem');
+const KEY_PATH  = path.join(__dirname, '..', 'rowan-hub-key.pem');
 
 async function loadOrGenerateCert() {
   if (fs.existsSync(CERT_PATH) && fs.existsSync(KEY_PATH)) {
     return { cert: fs.readFileSync(CERT_PATH), key: fs.readFileSync(KEY_PATH) };
   }
-  console.log('[Hazel] Generating self-signed TLS certificate…');
-  const attrs = [{ name: 'commonName', value: 'hazel.local' }];
+  console.log('[Rowan Hub] Generating self-signed TLS certificate…');
+  const attrs = [{ name: 'commonName', value: 'rowanhub.local' }];
   const opts  = { days: 3650, keySize: 2048 };
   const pems  = await selfsigned.generate(attrs, opts);
   fs.writeFileSync(CERT_PATH, pems.cert);
@@ -142,7 +142,7 @@ async function startUiServer(registry, config, scheduler, bridge) {
   app.post('/api/devices', (req, res) => {
     try {
       const device = configManager.addDevice(req.body);
-      res.json({ ok: true, device, message: 'Device added. Restart Hazel to activate.' });
+      res.json({ ok: true, device, message: 'Device added. Restart Rowan Hub to activate.' });
     } catch (e) {
       res.status(400).json({ error: e.message });
     }
@@ -151,7 +151,7 @@ async function startUiServer(registry, config, scheduler, bridge) {
   app.put('/api/devices/:id', (req, res) => {
     try {
       const device = configManager.updateDevice(req.params.id, req.body);
-      res.json({ ok: true, device, message: 'Device updated. Restart Hazel to apply.' });
+      res.json({ ok: true, device, message: 'Device updated. Restart Rowan Hub to apply.' });
     } catch (e) {
       res.status(400).json({ error: e.message });
     }
@@ -160,7 +160,7 @@ async function startUiServer(registry, config, scheduler, bridge) {
   app.delete('/api/devices/:id', (req, res) => {
     try {
       configManager.removeDevice(req.params.id);
-      res.json({ ok: true, message: 'Device removed. Restart Hazel to apply.' });
+      res.json({ ok: true, message: 'Device removed. Restart Rowan Hub to apply.' });
     } catch (e) {
       res.status(400).json({ error: e.message });
     }
@@ -206,7 +206,7 @@ async function startUiServer(registry, config, scheduler, bridge) {
   app.put('/api/plugins/:name', (req, res) => {
     try {
       configManager.updatePluginGlobal(req.params.name, req.body);
-      res.json({ ok: true, message: 'Plugin settings saved. Restart Hazel to apply.' });
+      res.json({ ok: true, message: 'Plugin settings saved. Restart Rowan Hub to apply.' });
     } catch (e) {
       res.status(400).json({ error: e.message });
     }
@@ -384,7 +384,7 @@ async function startUiServer(registry, config, scheduler, bridge) {
   });
 
   app.listen(port, () => {
-    console.log(`[Hazel] Web UI → http://localhost:${port}`);
+    console.log(`[Rowan Hub] Web UI → http://localhost:${port}`);
   });
 
   // HTTPS — required for push notifications and service workers on phones
@@ -393,9 +393,9 @@ async function startUiServer(registry, config, scheduler, bridge) {
   if (config.certFile && config.keyFile) {
     try {
       certConfig = { cert: fs.readFileSync(config.certFile), key: fs.readFileSync(config.keyFile) };
-      console.log('[Hazel] HTTPS using configured certificate');
+      console.log('[Rowan Hub] HTTPS using configured certificate');
     } catch (e) {
-      console.warn(`[Hazel] Could not load TLS cert: ${e.message} — HTTPS disabled`);
+      console.warn(`[Rowan Hub] Could not load TLS cert: ${e.message} — HTTPS disabled`);
     }
   } else {
     certConfig = await loadOrGenerateCert();
@@ -403,7 +403,7 @@ async function startUiServer(registry, config, scheduler, bridge) {
 
   if (certConfig) {
     https.createServer(certConfig, app).listen(httpsPort, () => {
-      console.log(`[Hazel] Web UI (HTTPS) → https://localhost:${httpsPort}`);
+      console.log(`[Rowan Hub] Web UI (HTTPS) → https://localhost:${httpsPort}`);
     });
   }
 }

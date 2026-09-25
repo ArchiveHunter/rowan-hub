@@ -11,7 +11,7 @@ class PushManager {
   constructor() {
     this._keys = this._loadKeys();
     this._subscriptions = this._loadSubs();
-    webpush.setVapidDetails('mailto:hazel@local', this._keys.publicKey, this._keys.privateKey);
+    webpush.setVapidDetails('mailto:hello@rowanhub.co.uk', this._keys.publicKey, this._keys.privateKey);
   }
 
   _loadKeys() {
@@ -50,7 +50,7 @@ class PushManager {
 
   async send(title, body, options = {}) {
     if (!this._subscriptions.length) return;
-    const payload = JSON.stringify({ title, body, tag: options.tag || 'hazel', icon: '/hazel.png' });
+    const payload = JSON.stringify({ title, body, tag: options.tag || 'rowan-hub', icon: '/rowan-hub.png' });
     const dead = [];
     for (const sub of this._subscriptions) {
       try {
@@ -68,15 +68,15 @@ class PushManager {
   async checkForUpdate() {
     try {
       const { data } = await axios.get(
-        'https://api.github.com/repos/ArchiveHunter/hazel-matter/releases/latest',
-        { timeout: 8000, headers: { 'User-Agent': 'hazel-matter' } }
+        'https://api.github.com/repos/ArchiveHunter/rowan-hub/releases/latest',
+        { timeout: 8000, headers: { 'User-Agent': 'rowan-hub' } }
       );
       const latest = data.tag_name?.replace(/^v/, '');
       if (latest && latest !== version) {
         await this.send(
-          'Hazel — Update Available',
+          'Rowan Hub — Update Available',
           `v${latest} is available (you have v${version}).`,
-          { tag: 'hazel-update' }
+          { tag: 'rowan-hub-update' }
         );
       }
     } catch {} // No releases yet, network error, or rate limit — silently ignore

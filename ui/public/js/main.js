@@ -3,7 +3,7 @@
 
   // ── Theme ────────────────────────────────────────────────────────────────────
 
-  var THEME_KEY = 'hazel-theme';
+  var THEME_KEY = 'rowan-hub-theme';
 
   function applyTheme(t) {
     document.documentElement.dataset.theme = t;
