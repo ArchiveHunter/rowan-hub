@@ -61,6 +61,32 @@ async function startUiServer(registry, config, scheduler, bridge) {
     for (const res of logClients) { try { res.write(payload); } catch {} }
   });
 
+  // ─── Setup wizard redirect ───────────────────────────────────────────────────
+
+  app.use((req, res, next) => {
+    if (configManager.isSetupComplete()) return next();
+    const allowed = req.path === '/setup' || req.path.startsWith('/api/setup') || req.path === '/api/system/restart';
+    if (allowed) return next();
+    res.redirect('/setup');
+  });
+
+  // ─── Setup wizard ────────────────────────────────────────────────────────────
+
+  app.get('/setup', (req, res) => {
+    if (configManager.isSetupComplete()) return res.redirect('/dashboard');
+    const cfg = configManager.load();
+    res.render('setup', { bridge: cfg.bridge || {}, location: cfg.location || {} });
+  });
+
+  app.post('/api/setup/complete', (req, res) => {
+    try {
+      configManager.completeSetup(req.body);
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  });
+
   // ─── Pages ──────────────────────────────────────────────────────────────────
 
   app.get('/', (req, res) => res.redirect('/dashboard'));

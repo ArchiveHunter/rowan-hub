@@ -194,4 +194,22 @@ function updateLocation(latitude, longitude) {
   save(config);
 }
 
-module.exports = { load, save, addDevice, updateDevice, removeDevice, toggleDevice, updatePluginGlobal, togglePlugin, getPlugins, getEnabledPluginNames, getSchemas, updateLocation };
+function isSetupComplete() {
+  try { return load().setup_complete === true; } catch { return false; }
+}
+
+function completeSetup({ bridgeName, passcode, discriminator, latitude, longitude }) {
+  const config = load();
+  config.bridge = {
+    ...config.bridge,
+    name: bridgeName || 'Rowan Hub',
+    passcode: parseInt(passcode, 10) || 20202021,
+    discriminator: parseInt(discriminator, 10) ?? 3840,
+  };
+  config.location = { latitude: parseFloat(latitude), longitude: parseFloat(longitude) };
+  config.devices = [];
+  config.setup_complete = true;
+  save(config);
+}
+
+module.exports = { load, save, addDevice, updateDevice, removeDevice, toggleDevice, updatePluginGlobal, togglePlugin, getPlugins, getEnabledPluginNames, getSchemas, updateLocation, isSetupComplete, completeSetup };

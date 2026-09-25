@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rowan Hub — Setup</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .setup-shell {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .setup-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 480px;
+      padding: 40px;
+    }
+    .setup-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    .setup-logo img { width: 36px; height: 36px; object-fit: contain; }
+    .setup-logo span { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+
+    /* Steps */
+    .step { display: none; }
+    .step.active { display: block; }
+
+    .step-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .step-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      margin-bottom: 8px;
+    }
+    .step-desc {
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    /* Progress dots */
+    .progress-dots {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 32px;
+    }
+    .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background 0.2s, width 0.2s;
+    }
+    .dot.active { background: var(--accent); width: 18px; border-radius: 3px; }
+    .dot.done   { background: var(--success); }
+
+    /* Fields */
+    .field { margin-bottom: 20px; }
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .field input {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    .field input:focus { border-color: var(--accent); }
+    .field .hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 5px;
+    }
+
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* Geo button */
+    .geo-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-size: 13px;
+      padding: 8px 14px;
+      cursor: pointer;
+      margin-bottom: 16px;
+      transition: border-color var(--transition), color var(--transition);
+    }
+    .geo-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 28px;
+    }
+    .btn {
+      flex: 1;
+      padding: 12px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity var(--transition), background var(--transition);
+    }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { opacity: 0.88; }
+    .btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); flex: 0 0 auto; padding: 12px 16px; }
+    .btn-secondary:hover { border-color: var(--accent); }
+
+    /* Done step */
+    .done-icon {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      background: rgba(16,185,129,0.12);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 20px;
+    }
+    .done-summary {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .done-summary-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      padding: 4px 0;
+    }
+    .done-summary-row .key { color: var(--text-muted); }
+    .done-summary-row .val { font-weight: 600; }
+
+    /* Restart screen */
+    .restarting {
+      display: none;
+      text-align: center;
+      padding: 20px 0;
+    }
+    .restarting.active { display: block; }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-msg {
+      font-size: 13px;
+      color: var(--danger);
+      margin-top: 10px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+<div class="setup-shell">
+  <div class="setup-card">
+
+    <div class="setup-logo">
+      <img src="/rowan-hub.png" alt="Rowan Hub">
+      <span>Rowan Hub</span>
+    </div>
+
+    <div class="progress-dots">
+      <div class="dot active" id="dot-0"></div>
+      <div class="dot" id="dot-1"></div>
+      <div class="dot" id="dot-2"></div>
+      <div class="dot" id="dot-3"></div>
+    </div>
+
+    <!-- Step 0: Welcome -->
+    <div class="step active" id="step-0">
+      <div class="step-label">Step 1 of 4</div>
+      <div class="step-title">Welcome to Rowan Hub</div>
+      <div class="step-desc">
+        Let's get your Matter bridge set up. It only takes a minute — we'll configure the bridge name, set your location for sunrise/sunset automations, and then you're ready to pair your platforms.
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="goTo(1)">Get started</button>
+      </div>
+    </div>
+
+    <!-- Step 1: Bridge settings -->
+    <div class="step" id="step-1">
+      <div class="step-label">Step 2 of 4</div>
+      <div class="step-title">Bridge settings</div>
+      <div class="step-desc">Give your bridge a name and set the pairing code. These are what Apple Home, Alexa, and Google Home will use when you commission.</div>
+
+      <div class="field">
+        <label>Bridge name</label>
+        <input type="text" id="bridgeName" value="<%= bridge.name || 'Rowan Hub' %>" placeholder="Rowan Hub" maxlength="40">
+        <div class="hint">Shown in Apple Home, Alexa, and Google Home as the bridge name.</div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Passcode</label>
+          <input type="text" id="passcode" value="<%= bridge.passcode || '20202021' %>" placeholder="20202021" maxlength="8">
+          <div class="hint">8-digit pairing code.</div>
+        </div>
+        <div class="field">
+          <label>Discriminator</label>
+          <input type="number" id="discriminator" value="<%= bridge.discriminator ?? 3840 %>" min="0" max="4095">
+          <div class="hint">0–4095. Change only if running two bridges.</div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goTo(0)">Back</button>
+        <button class="btn btn-primary" onclick="goTo(2)">Continue</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Location -->
+    <div class="step" id="step-2">
+      <div class="step-label">Step 3 of 4</div>
+      <div class="step-title">Your location</div>
+      <div class="step-desc">Used to calculate sunrise and sunset times for automations. Your coordinates are stored only on this device and never sent anywhere.</div>
+
+      <button class="geo-btn" onclick="useGeo()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/>
+        </svg>
+        Use my location
+      </button>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Latitude</label>
+          <input type="number" id="latitude" value="<%= (location.latitude != null) ? location.latitude : '' %>" step="0.0001" placeholder="51.5074">
+        </div>
+        <div class="field">
+          <label>Longitude</label>
+          <input type="number" id="longitude" value="<%= (location.longitude != null) ? location.longitude : '' %>" step="0.0001" placeholder="-0.1278">
+        </div>
+      </div>
+      <div class="hint" style="margin-top:-12px; margin-bottom:16px;">Find your coordinates at <strong>latlong.net</strong> or use the button above.</div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goTo(1)">Back</button>
+        <button class="btn btn-primary" onclick="goTo(3)">Continue</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Done -->
+    <div class="step" id="step-3">
+      <div class="step-label">Step 4 of 4</div>
+      <div class="done-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <div class="step-title">Ready to go</div>
+      <div class="step-desc">Here's what you've configured. Click Finish to save and restart the bridge — it'll be back in a few seconds.</div>
+
+      <div class="done-summary">
+        <div class="done-summary-row"><span class="key">Bridge name</span><span class="val" id="sum-name">—</span></div>
+        <div class="done-summary-row"><span class="key">Passcode</span><span class="val" id="sum-passcode">—</span></div>
+        <div class="done-summary-row"><span class="key">Location</span><span class="val" id="sum-location">—</span></div>
+      </div>
+
+      <div class="error-msg" id="setup-error"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goTo(2)">Back</button>
+        <button class="btn btn-primary" id="finish-btn" onclick="finish()">Finish &amp; restart</button>
+      </div>
+    </div>
+
+    <!-- Restarting overlay -->
+    <div class="restarting" id="restarting">
+      <div class="spinner"></div>
+      <div style="font-weight:600; margin-bottom:6px;">Restarting Rowan Hub…</div>
+      <div style="color:var(--text-muted); font-size:13px;">This takes a few seconds. You'll be redirected automatically.</div>
+    </div>
+
+  </div>
+</div>
+<script>
+let currentStep = 0;
+
+function goTo(n) {
+  if (n === 3) {
+    // Populate summary before showing done step
+    document.getElementById('sum-name').textContent     = document.getElementById('bridgeName').value.trim() || 'Rowan Hub';
+    document.getElementById('sum-passcode').textContent = document.getElementById('passcode').value.trim() || '20202021';
+    const lat = document.getElementById('latitude').value;
+    const lon = document.getElementById('longitude').value;
+    document.getElementById('sum-location').textContent = (lat && lon) ? `${parseFloat(lat).toFixed(4)}, ${parseFloat(lon).toFixed(4)}` : 'Not set';
+  }
+  document.getElementById('step-' + currentStep).classList.remove('active');
+  document.getElementById('step-' + n).classList.add('active');
+  updateDots(n);
+  currentStep = n;
+}
+
+function updateDots(active) {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById('dot-' + i);
+    d.className = 'dot' + (i === active ? ' active' : i < active ? ' done' : '');
+  }
+}
+
+function useGeo() {
+  if (!navigator.geolocation) return alert('Geolocation not available in this browser.');
+  navigator.geolocation.getCurrentPosition(pos => {
+    document.getElementById('latitude').value  = pos.coords.latitude.toFixed(6);
+    document.getElementById('longitude').value = pos.coords.longitude.toFixed(6);
+  }, () => alert('Could not get location. Enter coordinates manually.'));
+}
+
+async function finish() {
+  const btn = document.getElementById('finish-btn');
+  const errEl = document.getElementById('setup-error');
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const payload = {
+    bridgeName:    document.getElementById('bridgeName').value.trim(),
+    passcode:      document.getElementById('passcode').value.trim(),
+    discriminator: document.getElementById('discriminator').value,
+    latitude:      document.getElementById('latitude').value,
+    longitude:     document.getElementById('longitude').value,
+  };
+
+  try {
+    const r = await fetch('/api/setup/complete', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Save failed');
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Finish & restart';
+    return;
+  }
+
+  // Show restarting state
+  document.getElementById('step-3').style.display = 'none';
+  document.getElementById('restarting').classList.add('active');
+
+  fetch('/api/system/restart', { method: 'POST' }).catch(() => {});
+
+  // Poll until the server is back
+  const poll = setInterval(async () => {
+    try {
+      const r = await fetch('/api/system');
+      if (r.ok) { clearInterval(poll); window.location.href = '/dashboard'; }
+    } catch {}
+  }, 1500);
+}
+</script>
+</body>
+</html>
