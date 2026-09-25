@@ -149,7 +149,7 @@
 </div>
 
 <script>
-  window.DEVICES = <%- JSON.stringify(devices) %>;
+  window.DEVICES = <%- JSON.stringify(devices).replace(/</g, '\\u003c') %>;
 </script>
 <script src="/js/automations.js"></script>
 </body>

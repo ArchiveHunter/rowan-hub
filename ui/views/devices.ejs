@@ -157,10 +157,9 @@
 </div>
 
 <script>
-  // Pass device data and schemas to JS
-  window.DEVICES_DATA = <%- JSON.stringify(devices) %>;
-  window.PLUGIN_SCHEMAS = <%- JSON.stringify(schemas) %>;
-  window.ENABLED_PLUGINS = <%- JSON.stringify(enabledPlugins) %>;
+  window.DEVICES_DATA = <%- JSON.stringify(devices).replace(/</g, '\\u003c') %>;
+  window.PLUGIN_SCHEMAS = <%- JSON.stringify(schemas).replace(/</g, '\\u003c') %>;
+  window.ENABLED_PLUGINS = <%- JSON.stringify(enabledPlugins).replace(/</g, '\\u003c') %>;
 </script>
 <script src="/js/main.js"></script>
 <script src="/js/config.js"></script>

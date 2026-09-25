@@ -152,7 +152,7 @@
 <script>
   window.INITIAL_HEALTH = <%- JSON.stringify(
     devices.reduce(function(acc, d) { acc[d.id] = d.lastSeen; return acc; }, {})
-  ) %>;
+  ).replace(/</g, '\\u003c') %>;
 </script>
 <script src="/js/main.js"></script>
 <script src="/js/dashboard.js"></script>
