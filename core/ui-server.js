@@ -453,6 +453,20 @@ async function startUiServer(registry, config, scheduler, bridge) {
     setTimeout(() => process.exit(0), 500);
   });
 
+  app.post('/api/system/update', (req, res) => {
+    const { exec } = require('child_process');
+    const cwd = path.join(__dirname, '..');
+    exec('git pull --ff-only', { cwd }, (err, _stdout, stderr) => {
+      if (err) {
+        return res.status(400).json({ error: 'Update failed: ' + (stderr || err.message).trim() });
+      }
+      res.json({ ok: true, message: 'Updating…' });
+      exec('npm install --omit=dev', { cwd }, () => {
+        setTimeout(() => process.exit(0), 500);
+      });
+    });
+  });
+
   app.listen(port, () => {
     console.log(`[Rowan Hub] Web UI → http://localhost:${port}`);
   });

@@ -256,4 +256,51 @@
     });
   }
 
+  // ── Update ────────────────────────────────────────────────────────────────────
+
+  var updateBtn = document.getElementById('btn-update-now');
+
+  function pollUntilBack() {
+    clearInterval(statsInterval);
+    var deadline = Date.now() + 120000;
+    var poll = setInterval(function () {
+      if (Date.now() > deadline) {
+        clearInterval(poll);
+        showToast('Update timed out — check manually', 'error');
+        return;
+      }
+      fetch('/api/system')
+        .then(function (r) { return r.json(); })
+        .then(function () { clearInterval(poll); window.location.reload(); })
+        .catch(function () {});
+    }, 2000);
+  }
+
+  if (updateBtn) {
+    updateBtn.addEventListener('click', function () {
+      if (!confirm('Update Rowan Hub now? The bridge will restart briefly.')) return;
+
+      updateBtn.disabled = true;
+      updateBtn.textContent = 'Updating…';
+
+      fetch('/api/system/update', { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.ok) {
+            showToast(data.error || 'Update failed', 'error');
+            updateBtn.disabled = false;
+            updateBtn.textContent = 'Update now';
+            return;
+          }
+          showToast('Updating Rowan Hub…', 'warn');
+          pollUntilBack();
+        })
+        .catch(function () {
+          // Process may exit before the response lands — treat as success
+          showToast('Updating Rowan Hub…', 'warn');
+          pollUntilBack();
+        });
+    });
+  }
+
 })();

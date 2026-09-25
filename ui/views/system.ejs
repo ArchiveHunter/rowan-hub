@@ -24,7 +24,10 @@
             <div class="update-banner-sub">You're running v<%= updateInfo.currentVersion %>. <% if (updateInfo.publishedAt) { %>Released <%= new Date(updateInfo.publishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) %>.<% } %></div>
           </div>
         </div>
-        <a href="<%= updateInfo.releaseUrl %>" target="_blank" rel="noopener" class="btn btn-sm btn-primary">View release</a>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm btn-primary" id="btn-update-now">Update now</button>
+          <a href="<%= updateInfo.releaseUrl %>" target="_blank" rel="noopener" class="btn btn-sm btn-secondary">View release</a>
+        </div>
       </div>
       <% } %>
 
