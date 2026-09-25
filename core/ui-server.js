@@ -155,7 +155,7 @@ async function startUiServer(registry, config, scheduler, bridge) {
         qrDataUrl = await QRCode.toDataURL(commissioningInfo.qrPairingCode, { width: 220, margin: 2, color: { dark: '#000', light: '#fff' } });
       } catch {}
     }
-    res.render('system', { bridge: cfg.bridge, location: cfg.location || {}, page: 'system', commissioningInfo, qrDataUrl });
+    res.render('system', { bridge: cfg.bridge, location: cfg.location || {}, page: 'system', commissioningInfo, qrDataUrl, updateInfo: pushManager.getUpdateInfo() });
   });
 
   // ─── API: devices ────────────────────────────────────────────────────────────
@@ -414,6 +414,7 @@ async function startUiServer(registry, config, scheduler, bridge) {
       deviceCount: registry.getAll().length,
       version: require('../package.json').version,
       windowStatus: commissioningInfo?.windowStatus ?? 0,
+      updateInfo: pushManager.getUpdateInfo(),
     });
   });
 

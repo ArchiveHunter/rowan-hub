@@ -12,6 +12,7 @@ class PushManager {
     this._keys = this._loadKeys();
     this._subscriptions = this._loadSubs();
     webpush.setVapidDetails('mailto:hello@rowanhub.co.uk', this._keys.publicKey, this._keys.privateKey);
+    this._latestRelease = null; // { version, url, publishedAt }
   }
 
   _loadKeys() {
@@ -65,6 +66,18 @@ class PushManager {
     }
   }
 
+  getUpdateInfo() {
+    return {
+      currentVersion: version,
+      latestVersion:  this._latestRelease?.version || null,
+      updateAvailable: this._latestRelease
+        ? this._latestRelease.version !== version
+        : false,
+      releaseUrl:   this._latestRelease?.url || null,
+      publishedAt:  this._latestRelease?.publishedAt || null,
+    };
+  }
+
   async checkForUpdate() {
     try {
       const { data } = await axios.get(
@@ -72,7 +85,15 @@ class PushManager {
         { timeout: 8000, headers: { 'User-Agent': 'Rowan-Hub' } }
       );
       const latest = data.tag_name?.replace(/^v/, '');
-      if (latest && latest !== version) {
+      if (!latest) return;
+
+      this._latestRelease = {
+        version:     latest,
+        url:         data.html_url,
+        publishedAt: data.published_at,
+      };
+
+      if (latest !== version) {
         await this.send(
           'Rowan Hub — Update Available',
           `v${latest} is available (you have v${version}).`,
