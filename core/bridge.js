@@ -40,10 +40,14 @@ class RowanHubBridge {
         vendorId: VendorId(0xfff1),
         nodeLabel: this.config.name || 'Rowan Hub',
         productName: 'Rowan Hub Matter Bridge',
-        productLabel: 'Rowan Hub',
+        productLabel: 'Matter Bridge',
         productId: 0x8000,
-        serialNumber: uniqueId,
+        serialNumber: 'rowan-hub-bridge',
         uniqueId,
+        hardwareVersion: 1,
+        hardwareVersionString: '1',
+        softwareVersion: 11,
+        softwareVersionString: require('../package.json').version,
       },
     });
 
