@@ -84,8 +84,8 @@ Hazel maps plugin capabilities to Matter device types automatically:
 - avahi-daemon (`apt install avahi-daemon`)
 
 ```bash
-git clone git@github.com:ArchiveHunter/hazel-matter.git
-cd hazel-matter
+git clone git@github.com:ArchiveHunter/rowan-hub.git
+cd rowan-hub
 npm install
 cp config.example.yaml config.yaml
 # Edit config.yaml with your bridge settings, devices, and credentials
@@ -388,7 +388,7 @@ To start fresh (wipe all paired platforms and commission again):
 ## Project structure
 
 ```
-hazel-matter/
+rowan-hub/
 ├── hazel.js                  # Entry point
 ├── config.yaml               # Your config (gitignored)
 ├── config.example.yaml       # Template

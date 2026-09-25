@@ -69,7 +69,7 @@ class PushManager {
     try {
       const { data } = await axios.get(
         'https://api.github.com/repos/ArchiveHunter/rowan-hub/releases/latest',
-        { timeout: 8000, headers: { 'User-Agent': 'rowan-hub' } }
+        { timeout: 8000, headers: { 'User-Agent': 'Rowan-Hub' } }
       );
       const latest = data.tag_name?.replace(/^v/, '');
       if (latest && latest !== version) {
