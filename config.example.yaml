@@ -11,6 +11,12 @@ bridge:
 ui:
   port: 3088
 
+# ── Internal MQTT broker ──────────────────────────────────────────────────────
+# Requires Mosquitto to be installed (included by install.sh)
+# Enable from the MQTT page in the web UI, or set enabled: true here
+mqtt_broker:
+  enabled: false
+
 # ── Plugin global settings ────────────────────────────────────────────────────
 # Only required sections for plugins you actually use
 

@@ -10,6 +10,7 @@ const configManager = require('./config-manager');
 const automationsManager = require('./automations-manager');
 const scenesManager = require('./scenes-manager');
 const pushManager = require('./push-manager');
+const mqttBroker = require('./mqtt-broker');
 
 const CERT_PATH = path.join(__dirname, '..', 'rowan-hub-cert.pem');
 const KEY_PATH  = path.join(__dirname, '..', 'rowan-hub-key.pem');
@@ -109,6 +110,26 @@ async function startUiServer(registry, config, scheduler, bridge) {
 
   app.get('/plugins', (req, res) => {
     res.render('plugins', { plugins: configManager.getPlugins(), schemas: configManager.getSchemas(), page: 'plugins' });
+  });
+
+  app.get('/mqtt', async (req, res) => {
+    const cfg = configManager.load();
+    const enabledPlugins = configManager.getEnabledPluginNames();
+    const localIp = Object.values(os.networkInterfaces())
+      .flat().find(i => i.family === 'IPv4' && !i.internal)?.address || 'localhost';
+    const tasmotaDevices = cfg.devices.filter(d => d.plugin === 'tasmota' && d.enabled !== false);
+    const shellyDevices  = cfg.devices.filter(d => d.plugin === 'shelly'  && d.enabled !== false);
+    res.render('mqtt', {
+      page: 'mqtt',
+      brokerAvailable: await mqttBroker.isAvailable(),
+      brokerRunning:   await mqttBroker.isRunning(),
+      brokerEnabled:   configManager.getMqttBrokerEnabled(),
+      localIp,
+      tasmotaEnabled: enabledPlugins.includes('tasmota'),
+      shellyEnabled:  enabledPlugins.includes('shelly'),
+      tasmotaDevices,
+      shellyDevices,
+    });
   });
 
   app.get('/scenes', (req, res) => {
@@ -244,6 +265,28 @@ async function startUiServer(registry, config, scheduler, bridge) {
       res.json({ ok: true });
     } catch (e) {
       res.status(400).json({ error: e.message });
+    }
+  });
+
+  // ─── API: MQTT broker ────────────────────────────────────────────────────────
+
+  app.get('/api/mqtt/status', async (req, res) => {
+    res.json({
+      available: await mqttBroker.isAvailable(),
+      running:   await mqttBroker.isRunning(),
+      enabled:   configManager.getMqttBrokerEnabled(),
+    });
+  });
+
+  app.put('/api/mqtt/broker', async (req, res) => {
+    const enable = Boolean(req.body.enabled);
+    try {
+      if (enable) await mqttBroker.start();
+      else        await mqttBroker.stop();
+      configManager.setMqttBrokerEnabled(enable);
+      res.json({ ok: true, running: enable, restartRequired: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
     }
   });
 

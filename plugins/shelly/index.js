@@ -3,7 +3,7 @@ const WebSocket = require('ws');
 const { EventEmitter } = require('events');
 
 class ShellyDriver extends EventEmitter {
-  constructor(config) {
+  constructor(config, mqttClient) {
     super();
     this.name = config.name;
     this.host = config.host;
@@ -18,6 +18,8 @@ class ShellyDriver extends EventEmitter {
     this._pending = new Map();
     this._pollTimer = null;
     this._reconnectTimer = null;
+    this._mqttClient = mqttClient || null;
+    this._mqttId = config.mqtt_id || null;
   }
 
   get capabilities() {
@@ -41,12 +43,31 @@ class ShellyDriver extends EventEmitter {
       }
     }
 
-    if (this.generation === 1) {
+    // Gen1 + mqtt_id set + broker available → MQTT mode
+    if (this.generation === 1 && this._mqttClient && this._mqttId) {
+      this._initMqtt();
+      await this._pollGen1().catch(() => {}); // seed initial state
+    } else if (this.generation === 1) {
       await this._pollGen1();
       this._pollTimer = setInterval(() => this._pollGen1().catch(() => {}), 5000);
     } else {
       this._connectWs();
     }
+  }
+
+  _initMqtt() {
+    const baseTopic = `shellies/${this._mqttId}/${this.component}/${this.channel}`;
+    this._mqttClient.subscribe(baseTopic, () => {});
+
+    this._mqttClient.on('message', (topic, payload) => {
+      if (topic !== baseTopic) return;
+      const str = payload.toString().toLowerCase();
+      const on = (str === 'on' || str === 'true' || str === '1');
+      if (on !== this.state.on) {
+        this.state.on = on;
+        this.emit('state', { ...this.state });
+      }
+    });
   }
 
   async _pollGen1() {
@@ -116,6 +137,14 @@ class ShellyDriver extends EventEmitter {
   }
 
   async set(capability, value) {
+    // Gen1 MQTT command path
+    if (this.generation === 1 && this._mqttClient && this._mqttId && capability === 'power') {
+      const cmdTopic = `shellies/${this._mqttId}/${this.component}/${this.channel}/command`;
+      this._mqttClient.publish(cmdTopic, value ? 'on' : 'off');
+      this.state.on = Boolean(value);
+      this.emit('state', { ...this.state });
+      return;
+    }
     try {
       if (this.generation === 1) {
         if (this.component === 'relay') {
@@ -157,8 +186,8 @@ class ShellyDriver extends EventEmitter {
 
 module.exports = {
   name: 'shelly',
-  async init(config) {
-    const driver = new ShellyDriver(config);
+  async init(config, globalConfig, { mqttClient } = {}) {
+    const driver = new ShellyDriver(config, mqttClient);
     await driver.init();
     return driver;
   },

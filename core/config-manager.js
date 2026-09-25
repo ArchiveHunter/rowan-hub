@@ -20,9 +20,10 @@ const PLUGIN_SCHEMAS = {
     color: '#10b981',
     defaultEnabled: true,
     fields: [
-      { name: 'name',    label: 'Device Name', type: 'text',   required: true },
-      { name: 'host',    label: 'IP Address',  type: 'text',   required: true },
-      { name: 'channel', label: 'Channel',     type: 'number', placeholder: 'Leave empty for single-relay' },
+      { name: 'name',       label: 'Device Name', type: 'text',   required: true },
+      { name: 'host',       label: 'IP Address',  type: 'text',   required: true },
+      { name: 'channel',    label: 'Channel',     type: 'number', placeholder: 'Leave empty for single-relay' },
+      { name: 'mqtt_topic', label: 'MQTT Topic',  type: 'text',   placeholder: 'Leave blank — uses device ID' },
     ],
   },
   ewelink: {
@@ -47,11 +48,12 @@ const PLUGIN_SCHEMAS = {
     color: '#e8534a',
     defaultEnabled: false,
     fields: [
-      { name: 'name',       label: 'Device Name', type: 'text',   required: true },
-      { name: 'host',       label: 'IP Address',  type: 'text',   required: true },
-      { name: 'generation', label: 'Generation',  type: 'select', options: ['auto', '1', '2'], required: true },
-      { name: 'component',  label: 'Component',   type: 'select', options: ['relay', 'light', 'roller'] },
-      { name: 'channel',    label: 'Channel',     type: 'number', placeholder: '0' },
+      { name: 'name',       label: 'Device Name',   type: 'text',   required: true },
+      { name: 'host',       label: 'IP Address',    type: 'text',   required: true },
+      { name: 'generation', label: 'Generation',    type: 'select', options: ['auto', '1', '2'], required: true },
+      { name: 'component',  label: 'Component',     type: 'select', options: ['relay', 'light', 'roller'] },
+      { name: 'channel',    label: 'Channel',       type: 'number', placeholder: '0' },
+      { name: 'mqtt_id',    label: 'MQTT Device ID', type: 'text',  placeholder: 'e.g. shelly1-AABBCC (from device Settings → Device Info)' },
     ],
   },
   mqtt: {
@@ -194,6 +196,16 @@ function updateLocation(latitude, longitude) {
   save(config);
 }
 
+function getMqttBrokerEnabled() {
+  try { return load().mqtt_broker?.enabled === true; } catch { return false; }
+}
+
+function setMqttBrokerEnabled(enabled) {
+  const config = load();
+  config.mqtt_broker = { ...(config.mqtt_broker || {}), enabled: Boolean(enabled) };
+  save(config);
+}
+
 function isSetupComplete() {
   try { return load().setup_complete === true; } catch { return false; }
 }
@@ -212,4 +224,4 @@ function completeSetup({ bridgeName, passcode, discriminator, latitude, longitud
   save(config);
 }
 
-module.exports = { load, save, addDevice, updateDevice, removeDevice, toggleDevice, updatePluginGlobal, togglePlugin, getPlugins, getEnabledPluginNames, getSchemas, updateLocation, isSetupComplete, completeSetup };
+module.exports = { load, save, addDevice, updateDevice, removeDevice, toggleDevice, updatePluginGlobal, togglePlugin, getPlugins, getEnabledPluginNames, getSchemas, updateLocation, isSetupComplete, completeSetup, getMqttBrokerEnabled, setMqttBrokerEnabled };

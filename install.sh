@@ -51,6 +51,17 @@ else
   success "avahi-daemon running"
 fi
 
+# mosquitto (installed but not started — user enables via the MQTT page in the web UI)
+if ! command -v mosquitto &>/dev/null; then
+  info "Installing Mosquitto MQTT broker…"
+  apt-get install -y -qq mosquitto
+  systemctl disable mosquitto --quiet 2>/dev/null || true
+  systemctl stop mosquitto 2>/dev/null || true
+  success "Mosquitto installed (disabled — enable from the MQTT page in the web UI)"
+else
+  success "Mosquitto $(mosquitto -h 2>&1 | head -1 | awk '{print $3}')"
+fi
+
 # git
 if ! command -v git &>/dev/null; then
   info "Installing git…"

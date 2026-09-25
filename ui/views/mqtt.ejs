@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head><%- include('partials/head') %></head>
+<body>
+<div class="app-layout">
+  <%- include('partials/sidebar', { page: 'mqtt' }) %>
+  <main class="main-content">
+    <div class="page-container">
+
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">MQTT Broker</h1>
+          <p class="page-subtitle">Internal Mosquitto broker — lets Tasmota and Shelly devices push state instantly instead of being polled.</p>
+        </div>
+      </div>
+
+      <% if (!brokerAvailable) { %>
+      <div class="alert alert-warn">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 1L15 14H1L8 1z"/><path d="M8 6v4M8 11.5v.5"/></svg>
+        Mosquitto is not installed. Run <code>apt install mosquitto</code> on this machine, then reload this page.
+      </div>
+      <% } else { %>
+
+      <!-- Broker status card -->
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-body" style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:200px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+              <span class="status-dot <%= brokerRunning ? 'online' : 'offline' %>" id="broker-dot"></span>
+              <span style="font-weight:700; font-size:16px;" id="broker-status-text"><%= brokerRunning ? 'Running' : 'Stopped' %></span>
+            </div>
+            <% if (brokerRunning) { %>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <code class="inline-code" id="broker-addr"><%= localIp %>:1883</code>
+              <button class="btn-icon" onclick="copyAddr()" title="Copy address">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M3 11H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v1"/></svg>
+              </button>
+            </div>
+            <% } else { %>
+            <div style="color:var(--text-muted); font-size:13px;">Start the broker to see the connection address.</div>
+            <% } %>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <% if (brokerRunning) { %>
+            <button class="btn btn-sm btn-danger" id="broker-toggle-btn" onclick="toggleBroker(false)">Stop broker</button>
+            <% } else { %>
+            <button class="btn btn-sm btn-primary" id="broker-toggle-btn" onclick="toggleBroker(true)">Start broker</button>
+            <% } %>
+          </div>
+        </div>
+        <div class="alert alert-info restart-notice" id="restart-notice" style="margin:0 16px 16px; display:none;">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 1"/></svg>
+          Restart Rowan Hub to activate MQTT mode in plugins.
+          <button class="btn btn-xs btn-primary" style="margin-left:10px;" onclick="restart()">Restart now</button>
+        </div>
+        <% if (brokerEnabled) { %>
+        <div class="alert alert-info" style="margin:0 16px 16px;">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 1"/></svg>
+          MQTT mode is active — Tasmota and Shelly devices with topics configured are using push instead of polling.
+        </div>
+        <% } %>
+      </div>
+
+      <% if (brokerAvailable && (tasmotaEnabled || shellyEnabled)) { %>
+      <!-- Setup guides -->
+      <div class="section-header" style="margin-bottom:16px;">
+        <h2 class="section-title">Plugin setup guides</h2>
+        <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">Follow the steps for each plugin you're using. You only need to do this once per device.</p>
+      </div>
+
+      <div class="tab-bar" style="margin-bottom:20px;">
+        <% if (tasmotaEnabled) { %><button class="tab-btn active" onclick="showTab('tasmota', this)">Tasmota</button><% } %>
+        <% if (shellyEnabled) { %><button class="tab-btn <%= tasmotaEnabled ? '' : 'active' %>" onclick="showTab('shelly', this)">Shelly</button><% } %>
+      </div>
+
+      <!-- Tasmota tab -->
+      <% if (tasmotaEnabled) { %>
+      <div class="tab-pane" id="tab-tasmota">
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-header">How to connect a Tasmota device</div>
+          <div class="card-body">
+            <ol class="setup-steps">
+              <li>Open your Tasmota device's web UI in a browser (go to its IP address).</li>
+              <li>Go to <strong>Configuration → Configure MQTT</strong>.</li>
+              <li>Set <strong>Host</strong> to <code class="inline-code"><%= localIp %></code></li>
+              <li>Set <strong>Port</strong> to <code class="inline-code">1883</code></li>
+              <li>Leave User and Password blank (the internal broker uses no authentication).</li>
+              <li>Set <strong>Topic</strong> to the value shown for your device below.</li>
+              <li>Set <strong>Full Topic</strong> to <code class="inline-code">%prefix%/%topic%/</code></li>
+              <li>Click Save — the device will reboot and start publishing to Rowan Hub.</li>
+              <li>Add the same value to the <strong>MQTT Topic</strong> field on the Devices page (or leave blank if it matches the device ID).</li>
+            </ol>
+          </div>
+        </div>
+
+        <% if (tasmotaDevices.length === 0) { %>
+        <div class="empty-state-sm">No Tasmota devices configured yet. Add one on the <a href="/devices">Devices page</a>.</div>
+        <% } else { %>
+        <div class="device-grid">
+          <% for (const d of tasmotaDevices) { %>
+          <div class="card device-mqtt-card">
+            <div class="card-body">
+              <div class="device-mqtt-name"><%= d.name %></div>
+              <div class="device-mqtt-id">Device ID: <code class="inline-code"><%= d.id %></code></div>
+              <div class="mqtt-topic-row">
+                <div class="mqtt-topic-block">
+                  <div class="mqtt-topic-label">Set Topic to</div>
+                  <div class="mqtt-topic-value">
+                    <code class="inline-code" id="t-topic-<%= d.id %>"><%= d.mqtt_topic || d.id %></code>
+                    <button class="btn-icon" onclick="copy('<%= d.mqtt_topic || d.id %>')" title="Copy">
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M3 11H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v1"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="mqtt-topic-block">
+                  <div class="mqtt-topic-label">State topic (Rowan Hub listens on)</div>
+                  <div class="mqtt-topic-value">
+                    <code class="inline-code">stat/<%= d.mqtt_topic || d.id %>/POWER<%= d.channel !== undefined ? d.channel : '' %></code>
+                  </div>
+                </div>
+              </div>
+              <% if (!d.mqtt_topic) { %>
+              <div class="mqtt-hint">Topic matches device ID — no change needed in Rowan Hub.</div>
+              <% } else { %>
+              <div class="mqtt-hint">Custom topic set via <code>mqtt_topic</code> field.</div>
+              <% } %>
+            </div>
+          </div>
+          <% } %>
+        </div>
+        <% } %>
+      </div>
+      <% } %>
+
+      <!-- Shelly tab -->
+      <% if (shellyEnabled) { %>
+      <div class="tab-pane" id="tab-shelly" style="<%= tasmotaEnabled ? 'display:none' : '' %>">
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-header">How to connect a Shelly device</div>
+          <div class="card-body">
+            <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">MQTT mode applies to <strong>Gen1 Shelly devices only</strong>. Gen2 devices already use a live WebSocket connection and don't need MQTT.</p>
+            <ol class="setup-steps">
+              <li>Open your Shelly device's web UI (go to its IP address).</li>
+              <li>Go to <strong>Settings → MQTT</strong>.</li>
+              <li>Enable MQTT and set <strong>Server</strong> to <code class="inline-code"><%= localIp %>:1883</code></li>
+              <li>Leave Username and Password blank.</li>
+              <li>Click Save — the device will reboot.</li>
+              <li>Find the <strong>Device ID</strong> in <strong>Settings → Device Info</strong> (e.g. <code class="inline-code">shelly1-AABBCC</code>).</li>
+              <li>Add this ID to the <strong>MQTT Device ID</strong> field for the device on the <a href="/devices">Devices page</a>.</li>
+            </ol>
+          </div>
+        </div>
+
+        <% if (shellyDevices.length === 0) { %>
+        <div class="empty-state-sm">No Shelly devices configured yet. Add one on the <a href="/devices">Devices page</a>.</div>
+        <% } else { %>
+        <div class="device-grid">
+          <% for (const d of shellyDevices) { %>
+          <div class="card device-mqtt-card">
+            <div class="card-body">
+              <div class="device-mqtt-name"><%= d.name %></div>
+              <% if (d.mqtt_id) { %>
+              <div class="mqtt-topic-row">
+                <div class="mqtt-topic-block">
+                  <div class="mqtt-topic-label">MQTT Device ID</div>
+                  <div class="mqtt-topic-value"><code class="inline-code"><%= d.mqtt_id %></code></div>
+                </div>
+                <div class="mqtt-topic-block">
+                  <div class="mqtt-topic-label">State topic (Rowan Hub listens on)</div>
+                  <div class="mqtt-topic-value"><code class="inline-code">shellies/<%= d.mqtt_id %>/relay/<%= d.channel || 0 %></code></div>
+                </div>
+              </div>
+              <div class="mqtt-hint" style="color:var(--success);">✓ MQTT Device ID configured.</div>
+              <% } else { %>
+              <div class="mqtt-hint" style="color:var(--warn);">MQTT Device ID not set. Add it on the <a href="/devices">Devices page</a> to enable MQTT mode for this device.</div>
+              <% } %>
+            </div>
+          </div>
+          <% } %>
+        </div>
+        <% } %>
+      </div>
+      <% } %>
+      <% } %>
+
+      <% } %>
+
+    </div>
+  </main>
+</div>
+<script src="/js/main.js"></script>
+<script>
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).style.display = '';
+  btn.classList.add('active');
+}
+
+async function toggleBroker(enable) {
+  const btn = document.getElementById('broker-toggle-btn');
+  btn.disabled = true;
+  btn.textContent = enable ? 'Starting…' : 'Stopping…';
+  try {
+    const r = await fetch('/api/mqtt/broker', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enable }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Failed');
+    document.getElementById('broker-dot').className = 'status-dot ' + (enable ? 'online' : 'offline');
+    document.getElementById('broker-status-text').textContent = enable ? 'Running' : 'Stopped';
+    btn.textContent = enable ? 'Stop broker' : 'Start broker';
+    btn.className   = enable ? 'btn btn-sm btn-danger' : 'btn btn-sm btn-primary';
+    btn.onclick     = () => toggleBroker(!enable);
+    document.getElementById('restart-notice').style.display = '';
+  } catch (e) {
+    alert('Error: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = enable ? 'Start broker' : 'Stop broker';
+  }
+}
+
+function copyAddr() { copy('<%= localIp %>:1883'); }
+
+function copy(text) {
+  navigator.clipboard.writeText(text).catch(() => {});
+}
+
+async function restart() {
+  await fetch('/api/system/restart', { method: 'POST' });
+  setTimeout(() => { const poll = setInterval(async () => { try { const r = await fetch('/api/system'); if (r.ok) { clearInterval(poll); location.reload(); } } catch {} }, 1500); }, 1000);
+}
+</script>
+<style>
+.setup-steps { padding-left: 20px; color: var(--text); line-height: 2; font-size: 14px; }
+.setup-steps li { margin-bottom: 2px; }
+
+.tab-bar { display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+.tab-btn { background: none; border: none; color: var(--text-muted); font-size: 14px; font-weight: 500; padding: 8px 16px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color var(--transition), border-color var(--transition); }
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.device-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.device-mqtt-card .card-body { padding: 16px; }
+.device-mqtt-name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+.device-mqtt-id { color: var(--text-muted); font-size: 12px; margin-bottom: 12px; }
+.mqtt-topic-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.mqtt-topic-block { display: flex; flex-direction: column; gap: 4px; }
+.mqtt-topic-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.mqtt-topic-value { display: flex; align-items: center; gap: 6px; }
+.mqtt-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+.inline-code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font-family: monospace; font-size: 12px; }
+.btn-icon { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 3px; border-radius: 4px; display: flex; align-items: center; }
+.btn-icon:hover { color: var(--text); background: var(--surface-2); }
+.btn-xs { padding: 4px 10px; font-size: 12px; }
+
+.alert { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; }
+.alert-warn { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25); color: var(--warn); }
+.alert-info  { background: rgba(124,106,247,0.08); border: 1px solid rgba(124,106,247,0.2); color: var(--text); }
+
+.status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+.status-dot.online  { background: var(--success); box-shadow: 0 0 6px var(--success); }
+.status-dot.offline { background: var(--text-muted); }
+
+.empty-state-sm { color: var(--text-muted); font-size: 14px; padding: 16px 0; }
+.card-header { padding: 14px 16px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 14px; }
+</style>
+</body>
+</html>

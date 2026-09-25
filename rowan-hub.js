@@ -8,6 +8,7 @@ const { startUiServer } = require('./core/ui-server');
 const Scheduler = require('./core/scheduler');
 const scenesManager = require('./core/scenes-manager');
 const pushManager = require('./core/push-manager');
+const mqttBroker = require('./core/mqtt-broker');
 
 async function main() {
   const configPath = path.join(__dirname, 'config.yaml');
@@ -26,6 +27,24 @@ async function main() {
   } catch (e) {
     console.error(`[Rowan Hub] Bridge init failed: ${e.message}`);
     process.exit(1);
+  }
+
+  // Start internal MQTT broker if enabled in config, then create shared client
+  let mqttClient = null;
+  if (config.mqtt_broker?.enabled) {
+    try {
+      await mqttBroker.start();
+      mqttClient = mqttBroker.createClient();
+      await new Promise((resolve, reject) => {
+        mqttClient.once('connect', resolve);
+        mqttClient.once('error', reject);
+        setTimeout(() => reject(new Error('MQTT connect timeout')), 8000);
+      });
+      console.log('[Rowan Hub] MQTT broker running — MQTT mode active');
+    } catch (e) {
+      console.warn(`[Rowan Hub] MQTT broker unavailable: ${e.message} — falling back to polling`);
+      if (mqttClient) { mqttClient.end(true); mqttClient = null; }
+    }
   }
 
   for (const deviceConfig of config.devices) {
@@ -49,7 +68,7 @@ async function main() {
 
     let driver;
     try {
-      driver = await plugin.init(deviceConfig, globalConfig);
+      driver = await plugin.init(deviceConfig, globalConfig, { mqttClient });
     } catch (e) {
       console.error(`[Rowan Hub] Failed to init ${deviceConfig.name}: ${e.message}`);
       process.exit(1);
