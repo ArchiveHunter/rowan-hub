@@ -13,3 +13,6 @@ hazel-cert.pem
 hazel-key.pem
 rowan-hub-cert.pem
 rowan-hub-key.pem
+letsencrypt-cert.pem
+letsencrypt-key.pem
+letsencrypt-fullchain.pem
