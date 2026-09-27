@@ -30,6 +30,45 @@ async function loadOrGenerateCert() {
 
 const startTime = Date.now();
 
+function capabilitiesFromConfig(deviceCfg) {
+  switch (deviceCfg.plugin) {
+    case 'tasmota':
+    case 'ewelink':
+      return ['power'];
+    case 'wled': {
+      const caps = ['power', 'brightness', 'color'];
+      if (deviceCfg.presets?.length) caps.push('preset');
+      return caps;
+    }
+    case 'shelly':
+      return deviceCfg.component === 'light' ? ['power', 'brightness'] : ['power'];
+    case 'daikin':
+      return ['power', 'hvacMode', 'targetTemperature'];
+    case 'mqtt':
+      return (deviceCfg.capabilities || '').split(',').map(c => c.trim()).filter(Boolean);
+    default:
+      return ['power'];
+  }
+}
+
+// Returns all devices for UI dropdowns: enabled (from registry) + disabled (from config).
+function allDevicesForUI(registry) {
+  const registryDevices = registry.getAll().map(d => ({
+    id: d.id, name: d.name, capabilities: d.capabilities, presets: d.presets || [],
+  }));
+  const registryIds = new Set(registryDevices.map(d => d.id));
+  const cfg = configManager.getConfig();
+  const disabledDevices = (cfg.devices || [])
+    .filter(d => d.enabled === false && !registryIds.has(d.id))
+    .map(d => ({
+      id: d.id,
+      name: `${d.name} (disabled)`,
+      capabilities: capabilitiesFromConfig(d),
+      presets: d.presets || [],
+    }));
+  return [...registryDevices, ...disabledDevices];
+}
+
 async function startUiServer(registry, config, scheduler, bridge) {
   const app = express();
   const port = config.port || 3088;
@@ -133,13 +172,11 @@ async function startUiServer(registry, config, scheduler, bridge) {
   });
 
   app.get('/scenes', (req, res) => {
-    const devices = registry.getAll().map(d => ({ id: d.id, name: d.name, capabilities: d.capabilities, presets: d.presets || [] }));
-    res.render('scenes', { scenes: scenesManager.getAll(), devices, page: 'scenes' });
+    res.render('scenes', { scenes: scenesManager.getAll(), devices: allDevicesForUI(registry), page: 'scenes' });
   });
 
   app.get('/automations', (req, res) => {
-    const devices = registry.getAll().map(d => ({ id: d.id, name: d.name, capabilities: d.capabilities, presets: d.presets || [] }));
-    res.render('automations', { automations: automationsManager.getAll(), devices, page: 'automations' });
+    res.render('automations', { automations: automationsManager.getAll(), devices: allDevicesForUI(registry), page: 'automations' });
   });
 
   app.get('/logs', (req, res) => {
