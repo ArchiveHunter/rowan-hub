@@ -57,7 +57,7 @@ function allDevicesForUI(registry) {
     id: d.id, name: d.name, capabilities: d.capabilities, presets: d.presets || [],
   }));
   const registryIds = new Set(registryDevices.map(d => d.id));
-  const cfg = configManager.getConfig();
+  const cfg = configManager.load();
   const disabledDevices = (cfg.devices || [])
     .filter(d => d.enabled === false && !registryIds.has(d.id))
     .map(d => ({
