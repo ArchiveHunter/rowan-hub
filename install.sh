@@ -30,7 +30,8 @@ INSTALL_DIR="${ROWAN_HUB_DIR:-/opt/rowan-hub}"
 if [[ -d "$INSTALL_DIR" ]]; then
   warn "Rowan Hub is already installed at $INSTALL_DIR"
   echo ""
-  read -rp "  Upgrade in place? [y/N] " ans
+  # stdin is the piped script under `curl | sudo bash` — ask on the terminal instead
+  read -rp "  Upgrade in place? [y/N] " ans < /dev/tty || ans=""
   [[ "$ans" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
   UPGRADE=1
 fi
