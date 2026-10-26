@@ -400,7 +400,8 @@ async function startUiServer(registry, config, scheduler, bridge) {
   app.put('/api/devices/:id', (req, res) => {
     try {
       const device = configManager.updateDevice(req.params.id, req.body);
-      res.json({ ok: true, device, message: 'Device updated. Restart Rowan Hub to apply.' });
+      registry.updateDisplay(device.id, { room: device.room, kind: device.kind });
+      res.json({ ok: true, device, message: 'Device updated. Room shows on Home now; restart Rowan Hub to apply other changes and update your home apps.' });
     } catch (e) {
       res.status(400).json({ error: e.message });
     }

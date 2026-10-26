@@ -58,6 +58,14 @@ class Registry extends EventEmitter {
     }));
   }
 
+  // Room and type are display-only, so edits apply to the Home screen without a restart
+  updateDisplay(id, { room, kind } = {}) {
+    const entry = this.devices.get(id);
+    if (!entry) return;
+    if (room !== undefined) entry.config.room = room;
+    if (kind !== undefined) entry.config.kind = kind;
+  }
+
   get(id) {
     const entry = this.devices.get(id);
     if (!entry) return null;
