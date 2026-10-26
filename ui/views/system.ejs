@@ -1,252 +1,78 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-  <%- include('partials/head') %>
+  <%- include('partials/head', { title: 'System' }) %>
 </head>
 <body>
-<div class="app-layout">
-  <%- include('partials/sidebar', { page: 'system' }) %>
-  <main class="main-content">
-    <div class="page-container">
-
-      <div class="page-header">
-        <h1>System</h1>
-      </div>
+<div class="app">
+  <%- include('partials/sidebar') %>
+  <main class="main">
+    <div class="container container--narrow">
+      <%- include('partials/settings-tabs') %>
 
       <% if (updateInfo.updateAvailable) { %>
-      <div class="update-banner">
+      <section class="update-banner" aria-label="Update available">
         <div class="update-banner-left">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 1v8M5 6l3-4 3 4"/><path d="M3 11v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1"/>
-          </svg>
+          <%- include('partials/icon', { name: 'upload', size: 22 }) %>
           <div>
-            <div class="update-banner-title">Update available — v<%= updateInfo.latestVersion %></div>
-            <div class="update-banner-sub">You're running v<%= updateInfo.currentVersion %>. <% if (updateInfo.publishedAt) { %>Released <%= new Date(updateInfo.publishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) %>.<% } %></div>
+            <div class="update-banner-title">Rowan Hub v<%= updateInfo.latestVersion %> is available</div>
+            <div class="update-banner-sub">You're on v<%= updateInfo.currentVersion %>.<% if (updateInfo.publishedAt) { %> Released <%= new Date(updateInfo.publishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) %>.<% } %></div>
           </div>
         </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-sm btn-primary" id="btn-update-now">Update now</button>
-          <a href="<%= updateInfo.releaseUrl %>" target="_blank" rel="noopener" class="btn btn-sm btn-secondary">View release</a>
+        <div class="page-actions">
+          <a href="<%= updateInfo.releaseUrl %>" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">What's new</a>
+          <button class="btn btn-primary btn-sm" id="btn-update-now">Update now</button>
         </div>
-      </div>
+      </section>
       <% } %>
 
-      <div class="two-col">
-
-        <!-- Bridge info -->
-        <div class="card">
-          <div class="card-title">Matter Bridge</div>
-
-          <div class="stat-item">
-            <span class="stat-label">Bridge Name</span>
-            <span class="stat-value"><%= bridge.name %></span>
+      <div class="grid-2">
+        <section class="card" aria-labelledby="hub-title">
+          <h2 id="hub-title">This hub</h2>
+          <p class="card-sub">Rowan Hub v<%= updateInfo.currentVersion %><%= updateInfo.updateAvailable ? '' : ' · up to date' %></p>
+          <div style="margin-top:12px">
+            <div class="stat-item"><span class="stat-label">Running for</span><span class="stat-value" id="stat-uptime">–</span></div>
+            <div class="stat-item"><span class="stat-label">Devices</span><span class="stat-value" id="stat-devices">–</span></div>
+            <div class="stat-item"><span class="stat-label">Memory</span><span class="stat-value" id="stat-mem">–</span></div>
+            <div class="progress-bar"><div class="progress-fill" id="stat-mem-bar" style="width:0%"></div></div>
+            <div class="stat-item"><span class="stat-label">CPU load (1 min)</span><span class="stat-value" id="stat-cpu">–</span></div>
           </div>
+        </section>
 
-          <div class="stat-item">
-            <span class="stat-label">Matter Port</span>
-            <span class="stat-value mono"><%= bridge.port || 5540 %></span>
+        <section class="card" aria-labelledby="tech-title">
+          <h2 id="tech-title">Technical details</h2>
+          <p class="card-sub">Useful when asking for help.</p>
+          <div style="margin-top:12px">
+            <div class="stat-item"><span class="stat-label">Hostname</span><span class="stat-value mono" id="stat-host">–</span></div>
+            <div class="stat-item"><span class="stat-label">Node.js</span><span class="stat-value mono" id="stat-node">–</span></div>
+            <div class="stat-item"><span class="stat-label">Matter port</span><span class="stat-value mono"><%= bridge.port || 5540 %></span></div>
+            <div class="stat-item"><span class="stat-label">Discriminator</span><span class="stat-value mono"><%= bridge.discriminator ?? 3840 %></span></div>
           </div>
-
-          <div class="stat-item">
-            <span class="stat-label">Discriminator</span>
-            <span class="stat-value mono"><%= bridge.discriminator || 3840 %></span>
-          </div>
-
-          <div class="stat-item">
-            <span class="stat-label">Status</span>
-            <% if (commissioningInfo && commissioningInfo.commissioned) { %>
-            <span class="status-pill status-pill--live">Commissioned</span>
-            <% } else { %>
-            <span class="status-pill status-pill--pending">Not commissioned</span>
-            <% } %>
-          </div>
-
-          <div class="stat-item" style="border-bottom:none;padding-bottom:0">
-            <span class="stat-label">Passcode</span>
-            <span class="stat-value"></span>
-          </div>
-
-          <div class="homekit-pin-display">
-            <% var passcode = String(bridge.passcode || 20202021).padStart(8, '0'); %>
-            <span class="pin-segment"><%= passcode.slice(0,4) %></span>
-            <span class="pin-dash">–</span>
-            <span class="pin-segment"><%= passcode.slice(4) %></span>
-          </div>
-
-          <% if (qrDataUrl) { %>
-          <div style="margin-top:16px;text-align:center">
-            <img src="<%= qrDataUrl %>" alt="Matter pairing QR code" style="width:220px;height:220px;border-radius:8px;display:block;margin:0 auto">
-            <p class="text-muted" style="font-size:11px;margin-top:8px">Scan with Home / Google Home / Alexa app to commission</p>
-          </div>
-          <% } else { %>
-          <div class="qr-placeholder" style="margin-top:12px">
-            <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.4">
-              <rect x="1" y="1" width="6" height="6" rx="1"/><rect x="3" y="3" width="2" height="2" fill="currentColor" stroke="none"/>
-              <rect x="9" y="1" width="6" height="6" rx="1"/><rect x="11" y="3" width="2" height="2" fill="currentColor" stroke="none"/>
-              <rect x="1" y="9" width="6" height="6" rx="1"/><rect x="3" y="11" width="2" height="2" fill="currentColor" stroke="none"/>
-              <path d="M9 9h2v2H9zM11 11h2v2h-2zM13 9h2v2h-2zM9 13h4v2H9zM13 13h2v2h-2z"/>
-            </svg>
-            <span>QR code unavailable — restart Rowan Hub to generate</span>
-          </div>
-          <% } %>
-
-          <% var windowOpen = commissioningInfo && commissioningInfo.windowStatus > 0; %>
-          <div style="margin-top:16px">
-            <button class="btn btn-primary" id="btn-open-commissioning" style="width:100%"<%= windowOpen ? ' disabled' : '' %>>
-              Open for pairing
-            </button>
-            <div id="pairing-status" style="margin-top:10px;text-align:center;<%= windowOpen ? '' : 'display:none' %>">
-              <span class="status-pill status-pill--live">Pairing window open</span>
-              <div style="font-size:12px;color:var(--text-muted);margin-top:6px">
-                Expires in <strong id="pairing-countdown">15:00</strong> — scan QR above with any Matter app
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Live system stats -->
-        <div class="card">
-          <div class="card-title">System Stats</div>
-
-          <div class="stat-item">
-            <span class="stat-label">Rowan Hub Uptime</span>
-            <span class="stat-value" id="stat-uptime">–</span>
-          </div>
-
-          <div class="stat-item">
-            <span class="stat-label">Memory Usage</span>
-            <span class="stat-value" id="stat-mem">–</span>
-          </div>
-          <div class="progress-bar" style="margin: -8px 0 12px">
-            <div class="progress-fill" id="stat-mem-bar" style="width:0%"></div>
-          </div>
-
-          <div class="stat-item">
-            <span class="stat-label">CPU Load (1m)</span>
-            <span class="stat-value" id="stat-cpu">–</span>
-          </div>
-
-          <div class="stat-item">
-            <span class="stat-label">Node.js</span>
-            <span class="stat-value mono" id="stat-node">–</span>
-          </div>
-
-          <div class="stat-item">
-            <span class="stat-label">Hostname</span>
-            <span class="stat-value mono" id="stat-host">–</span>
-          </div>
-
-          <div class="stat-item" style="border-bottom:none">
-            <span class="stat-label">Devices</span>
-            <span class="stat-value" id="stat-devices">–</span>
-          </div>
-        </div>
-
+        </section>
       </div>
 
-      <!-- Location -->
-      <div class="card" style="margin-top:24px">
-        <div class="card-title">Location</div>
-        <p class="text-muted" style="font-size:13px;margin-bottom:16px">Used to calculate accurate sunrise and sunset times for automations.</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:flex-end">
-          <div>
-            <label class="form-label">Latitude</label>
-            <input type="number" class="form-input" id="loc-lat" step="0.0001" value="<%= location.latitude || '' %>" placeholder="e.g. 51.5074">
-          </div>
-          <div>
-            <label class="form-label">Longitude</label>
-            <input type="number" class="form-input" id="loc-lon" step="0.0001" value="<%= location.longitude || '' %>" placeholder="e.g. -0.1278">
-          </div>
-          <button class="btn btn-primary" id="btn-save-location">Save</button>
+      <section class="card" aria-labelledby="push-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px">
+        <span class="row-icon"><%- include('partials/icon', { name: 'bell' }) %></span>
+        <div style="flex:1 1 280px">
+          <h2 id="push-title">Notifications on this device</h2>
+          <p class="card-sub">Get an alert when a device stops responding, an automation runs, or an update is ready. Needs a trusted HTTPS address on phones.</p>
+          <p id="push-status-text" class="form-hint"></p>
         </div>
-        <p class="text-muted" style="font-size:11px;margin-top:8px">Find your coordinates by searching your town name on Google Maps — right-click the pin and copy the coordinates.</p>
-      </div>
+        <button class="btn btn-primary" id="btn-push-toggle">Turn on notifications</button>
+      </section>
 
-      <!-- Push notifications -->
-      <div class="card" style="margin-top:24px">
-        <div class="card-title">Push Notifications</div>
-        <p class="text-muted" style="font-size:13px;margin-bottom:16px">Receive alerts on this device for important events. Works in any browser that supports web push.</p>
-        <div class="stat-item" style="border-bottom:none;padding-bottom:0;margin-bottom:16px">
-          <span class="stat-label">Alerts sent</span>
-          <span class="stat-value" style="font-size:12px;color:var(--text-muted)">Device offline · Automation ran · Update available</span>
+      <section class="danger-zone" aria-labelledby="restart-title">
+        <div>
+          <h2 id="restart-title">Restart Rowan Hub</h2>
+          <p class="card-sub">Your devices are unavailable in your home apps for a few seconds.</p>
         </div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <button class="btn btn-primary" id="btn-push-toggle">Enable notifications</button>
-          <span id="push-status-text" class="text-muted" style="font-size:12px"></span>
-        </div>
-      </div>
-
-      <!-- Account -->
-      <div class="card" style="margin-top:24px">
-        <div class="card-title">Account</div>
-        <p class="text-muted" style="font-size:13px;margin-bottom:16px">Signed in as <strong><%= locals.user %></strong>. Changing your password signs out every other device.</p>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:flex-end">
-          <div>
-            <label class="form-label">Username</label>
-            <input type="text" class="form-input" id="acc-user" value="<%= locals.user %>" autocomplete="username" autocapitalize="none" maxlength="32">
-          </div>
-          <div>
-            <label class="form-label">Current password</label>
-            <input type="password" class="form-input" id="acc-current" autocomplete="current-password">
-          </div>
-          <div>
-            <label class="form-label">New password</label>
-            <input type="password" class="form-input" id="acc-new" autocomplete="new-password" placeholder="At least 8 characters">
-          </div>
-          <button class="btn btn-primary" id="btn-save-account">Save</button>
-        </div>
-      </div>
-
-      <!-- Danger zone -->
-      <div class="danger-zone" style="margin-top:24px">
-        <div class="danger-zone-header">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M8 1L1 14h14L8 1z"/><line x1="8" y1="6" x2="8" y2="9.5"/><circle cx="8" cy="11.5" r=".5" fill="currentColor"/>
-          </svg>
-          Danger Zone
-        </div>
-        <div class="danger-zone-body">
-          <div>
-            <div class="danger-action-name">Restart Rowan Hub</div>
-            <div class="text-muted" style="font-size:12px;margin-top:2px">Restarts the Rowan Hub process. Matter devices will be momentarily unavailable.</div>
-          </div>
-          <button class="btn btn-danger" id="btn-restart">Restart Rowan Hub</button>
-        </div>
-      </div>
+        <button class="btn btn-danger" id="btn-restart"><%- include('partials/icon', { name: 'restart', size: 18 }) %>Restart</button>
+      </section>
 
     </div>
   </main>
 </div>
 <script src="/js/main.js"></script>
 <script src="/js/system.js"></script>
-<style>
-.update-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  background: linear-gradient(135deg, rgba(124,106,247,0.12), rgba(124,106,247,0.06));
-  border: 1px solid rgba(124,106,247,0.35);
-  border-radius: var(--radius);
-  padding: 14px 18px;
-  margin-bottom: 24px;
-}
-.update-banner-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--accent);
-}
-.update-banner-title {
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--text);
-}
-.update-banner-sub {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-</style>
 </body>
 </html>

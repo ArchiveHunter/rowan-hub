@@ -1,17 +1,17 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
-<head><%- include('partials/head') %></head>
+<html lang="en">
+<head><%- include('partials/head', { title: 'MQTT broker' }) %></head>
 <body>
-<div class="app-layout">
-  <%- include('partials/sidebar', { page: 'mqtt' }) %>
-  <main class="main-content">
-    <div class="page-container">
+<div class="app">
+  <%- include('partials/sidebar') %>
+  <main class="main">
+    <div class="container container--narrow mqtt-page">
+      <%- include('partials/settings-tabs') %>
 
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">MQTT Broker</h1>
-          <p class="page-subtitle">Internal Mosquitto broker — lets Tasmota and Shelly devices push state instantly instead of being polled.</p>
-        </div>
+      <div>
+        <a href="/plugins" style="font-size:14px;font-weight:600">← Integrations</a>
+        <h2 class="section-title" style="margin-top:10px">Internal MQTT broker</h2>
+        <p class="page-sub">Lets Tasmota and Shelly devices report changes instantly instead of being polled. Set it up once per device.</p>
       </div>
 
       <% if (!brokerAvailable) { %>
@@ -240,39 +240,25 @@ async function restart() {
 }
 </script>
 <style>
-.setup-steps { padding-left: 20px; color: var(--text); line-height: 2; font-size: 14px; }
-.setup-steps li { margin-bottom: 2px; }
-
-.tab-bar { display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
-.tab-btn { background: none; border: none; color: var(--text-muted); font-size: 14px; font-weight: 500; padding: 8px 16px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color var(--transition), border-color var(--transition); }
-.tab-btn:hover { color: var(--text); }
-.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
-
-.device-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
-.device-mqtt-card .card-body { padding: 16px; }
-.device-mqtt-name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
-.device-mqtt-id { color: var(--text-muted); font-size: 12px; margin-bottom: 12px; }
-.mqtt-topic-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.mqtt-page .card { padding: 0; }
+.mqtt-page .card-body { padding: 18px 20px; }
+.mqtt-page .card-header { padding: 16px 20px; border-bottom: 1px solid var(--divider); font-weight: 700; font-size: 16px; }
+.setup-steps { margin: 0; padding-left: 22px; line-height: 1.9; }
+.tab-bar { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+.tab-btn { min-height: 44px; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 0 16px; color: var(--text-muted); font-size: 15px; font-weight: 500; cursor: pointer; }
+.tab-btn.active { color: var(--text); font-weight: 600; border-bottom-color: var(--accent); }
+.device-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.device-mqtt-name { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+.device-mqtt-id { color: var(--text-muted); font-size: 13px; margin-bottom: 12px; }
+.mqtt-topic-row { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
 .mqtt-topic-block { display: flex; flex-direction: column; gap: 4px; }
-.mqtt-topic-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.mqtt-topic-label { font-size: 13px; font-weight: 600; color: var(--text-muted); }
 .mqtt-topic-value { display: flex; align-items: center; gap: 6px; }
-.mqtt-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
-
-.inline-code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font-family: monospace; font-size: 12px; }
-.btn-icon { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 3px; border-radius: 4px; display: flex; align-items: center; }
-.btn-icon:hover { color: var(--text); background: var(--surface-2); }
-.btn-xs { padding: 4px 10px; font-size: 12px; }
-
-.alert { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; }
-.alert-warn { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25); color: var(--warn); }
-.alert-info  { background: rgba(124,106,247,0.08); border: 1px solid rgba(124,106,247,0.2); color: var(--text); }
-
-.status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
-.status-dot.online  { background: var(--success); box-shadow: 0 0 6px var(--success); }
-.status-dot.offline { background: var(--text-muted); }
-
-.empty-state-sm { color: var(--text-muted); font-size: 14px; padding: 16px 0; }
-.card-header { padding: 14px 16px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 14px; }
+.mqtt-hint { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; background: var(--dot-off); }
+.status-dot.online { background: var(--success); }
+.empty-state-sm { color: var(--text-muted); padding: 16px 0; }
+.mqtt-page .btn-icon { width: 36px; height: 36px; }
 </style>
 </body>
 </html>

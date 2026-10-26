@@ -13,6 +13,7 @@ const scenesManager = require('./scenes-manager');
 const pushManager = require('./push-manager');
 const mqttBroker = require('./mqtt-broker');
 const auth = require('./auth');
+const describe = require('./describe');
 const { version } = require('../package.json');
 
 const CERT_PATH = path.join(__dirname, '..', 'rowan-hub-cert.pem');
@@ -79,6 +80,28 @@ async function startUiServer(registry, config, scheduler, bridge) {
   app.set('view engine', 'ejs');
   app.set('views', path.join(__dirname, '..', 'ui', 'views'));
   app.locals.version = version;
+  app.locals.describe = describe;
+
+  // Name lookup for every configured device (enabled or not) — used to describe scenes/automations
+  function deviceDirectory() {
+    const cfg = configManager.load();
+    const names = {}, disabled = [];
+    for (const d of cfg.devices || []) {
+      names[d.id] = d.name;
+      if (d.enabled === false) disabled.push(d.id);
+    }
+    return { names, disabled };
+  }
+
+  async function pairingInfo() {
+    const info = bridge ? bridge.getCommissioningInfo() : null;
+    let qrDataUrl = null;
+    if (info?.qrPairingCode) {
+      try { qrDataUrl = await QRCode.toDataURL(info.qrPairingCode, { width: 220, margin: 1, color: { dark: '#000', light: '#fff' } }); } catch {}
+    }
+    const apps = [...new Set((info?.fabrics || []).map(describe.controllerName))];
+    return { commissioningInfo: info, qrDataUrl, apps };
+  }
 
   // ─── Request guard: DNS rebinding + cross-site requests ──────────────────────
   // The UI has no login, so stop other websites (opened in a browser on the LAN)
@@ -248,8 +271,22 @@ async function startUiServer(registry, config, scheduler, bridge) {
 
   app.get('/', (req, res) => res.redirect('/dashboard'));
 
-  app.get('/dashboard', (req, res) => {
-    res.render('dashboard', { devices: registry.getAll(), scenes: scenesManager.getAll(), page: 'dashboard' });
+  app.get('/dashboard', async (req, res) => {
+    const devices = registry.getAll().map(d => ({ ...d, kind: describe.deviceKind(d) }));
+    const { names, disabled } = deviceDirectory();
+    const nextRuns = scheduler ? scheduler.getNextRuns() : {};
+    const byId = Object.fromEntries(automationsManager.getAll().map(a => [a.id, a]));
+    const [nextId] = Object.keys(nextRuns).sort((a, b) => nextRuns[a] - nextRuns[b]);
+    const comingUp = nextId ? {
+      when: describe.whenText(nextRuns[nextId]),
+      text: describe.triggerText(byId[nextId].trigger).replace(/ every day$/, '') + ', ' +
+        describe.actionsText(byId[nextId].actions.filter(a => !disabled.includes(a.device)), id => names[id] || id),
+    } : null;
+    const { apps, commissioningInfo } = await pairingInfo();
+    res.render('dashboard', {
+      devices, scenes: scenesManager.getAll(), comingUp, pairedApps: apps,
+      commissioned: commissioningInfo?.commissioned ?? false, page: 'home',
+    });
   });
 
   app.get('/devices', (req, res) => {
@@ -260,12 +297,13 @@ async function startUiServer(registry, config, scheduler, bridge) {
       liveIds: [...liveIds],
       schemas: configManager.getSchemas(),
       enabledPlugins: configManager.getEnabledPluginNames(),
+      describe,
       page: 'devices',
     });
   });
 
-  app.get('/plugins', (req, res) => {
-    res.render('plugins', { plugins: configManager.getPlugins(), schemas: configManager.getSchemas(), page: 'plugins' });
+  app.get('/plugins', async (req, res) => {
+    res.render('plugins', { plugins: configManager.getPlugins(), schemas: configManager.getSchemas(), brokerRunning: await mqttBroker.isRunning(), page: 'settings', tab: 'integrations' });
   });
 
   app.get('/mqtt', async (req, res) => {
@@ -279,7 +317,8 @@ async function startUiServer(registry, config, scheduler, bridge) {
     res.render('mqtt', {
       mqttUser,
       mqttPass,
-      page: 'mqtt',
+      page: 'settings',
+      tab: 'integrations',
       brokerAvailable: await mqttBroker.isAvailable(),
       brokerRunning:   await mqttBroker.isRunning(),
       brokerEnabled:   configManager.getMqttBrokerEnabled(),
@@ -292,27 +331,31 @@ async function startUiServer(registry, config, scheduler, bridge) {
   });
 
   app.get('/scenes', (req, res) => {
-    res.render('scenes', { scenes: scenesManager.getAll(), devices: allDevicesForUI(registry), page: 'scenes' });
+    const { names, disabled } = deviceDirectory();
+    res.render('scenes', { scenes: scenesManager.getAll(), devices: allDevicesForUI(registry), deviceNames: names, disabledIds: disabled, page: 'scenes' });
   });
 
   app.get('/automations', (req, res) => {
-    res.render('automations', { automations: automationsManager.getAll(), devices: allDevicesForUI(registry), page: 'automations' });
+    const { names, disabled } = deviceDirectory();
+    const nextRuns = scheduler ? scheduler.getNextRuns() : {};
+    res.render('automations', {
+      automations: automationsManager.getAll(), devices: allDevicesForUI(registry),
+      deviceNames: names, disabledIds: disabled, nextRuns, page: 'automations',
+    });
   });
 
   app.get('/logs', (req, res) => {
-    res.render('logs', { page: 'logs' });
+    res.render('logs', { page: 'settings', tab: 'logs' });
   });
 
-  app.get('/system', async (req, res) => {
+  app.get('/settings', async (req, res) => {
     const cfg = configManager.load();
-    const commissioningInfo = bridge ? bridge.getCommissioningInfo() : null;
-    let qrDataUrl = null;
-    if (commissioningInfo?.qrPairingCode) {
-      try {
-        qrDataUrl = await QRCode.toDataURL(commissioningInfo.qrPairingCode, { width: 220, margin: 2, color: { dark: '#000', light: '#fff' } });
-      } catch {}
-    }
-    res.render('system', { bridge: cfg.bridge, location: cfg.location || {}, page: 'system', commissioningInfo, qrDataUrl, updateInfo: pushManager.getUpdateInfo() });
+    res.render('settings', { bridge: cfg.bridge || {}, location: cfg.location || {}, ...(await pairingInfo()), page: 'settings', tab: 'general' });
+  });
+
+  app.get('/system', (req, res) => {
+    const cfg = configManager.load();
+    res.render('system', { bridge: cfg.bridge, page: 'settings', tab: 'system', updateInfo: pushManager.getUpdateInfo() });
   });
 
   // ─── API: devices ────────────────────────────────────────────────────────────

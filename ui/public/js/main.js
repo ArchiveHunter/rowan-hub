@@ -5,19 +5,17 @@
 
   var THEME_KEY = 'rowan-hub-theme';
 
-  function applyTheme(t) {
-    document.documentElement.dataset.theme = t;
-    try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
-  }
-
-  window.toggleTheme = function () {
-    applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+  // light | dark | system — applied before first paint by the inline script in partials/head;
+  // the choice is per browser (each phone / computer remembers its own)
+  window.getTheme = function () {
+    return document.documentElement.dataset.theme || 'system';
   };
 
-  // Apply immediately (before paint) to prevent flash
-  applyTheme((function () {
-    try { return localStorage.getItem(THEME_KEY) || 'dark'; } catch (e) { return 'dark'; }
-  })());
+  window.setTheme = function (t) {
+    if (['light', 'dark', 'system'].indexOf(t) === -1) t = 'system';
+    document.documentElement.dataset.theme = t;
+    try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
+  };
 
   // ── Session ──────────────────────────────────────────────────────────────────
 
@@ -35,6 +33,11 @@
   window.signOut = function () {
     _fetch('/api/auth/logout', { method: 'POST' }).finally(function () { location.href = '/login'; });
   };
+
+  // Friendly names for device capabilities (scene/automation editors)
+  window.CAP_LABELS = { power: 'Power', brightness: 'Brightness', color: 'Colour', hue: 'Colour (hue)', saturation: 'Colour (saturation)',
+    preset: 'Preset', hvacMode: 'Mode', targetTemperature: 'Temperature' };
+  window.capLabel = function (c) { return window.CAP_LABELS[c] || c; };
 
   // ── Toast notifications ──────────────────────────────────────────────────────
 

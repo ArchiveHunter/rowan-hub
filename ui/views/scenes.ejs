@@ -1,63 +1,52 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-  <%- include('partials/head') %>
+  <%- include('partials/head', { title: 'Scenes' }) %>
 </head>
 <body>
-<div class="app-layout">
-  <%- include('partials/sidebar', { page: 'scenes' }) %>
-  <main class="main-content">
-    <div class="page-container">
+<%
+  function nameOf(id) { return deviceNames[id] || id; }
+  function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+%>
+<div class="app">
+  <%- include('partials/sidebar') %>
+  <main class="main">
+    <div class="container container--narrow">
 
-      <div class="page-header">
-        <h1>Scenes</h1>
-        <div class="header-actions">
-          <button class="btn btn-primary" id="btn-add-scene">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
-            Add Scene
-          </button>
+      <header class="page-head">
+        <div>
+          <h1>Scenes</h1>
+          <p class="page-sub">Set several devices at once. Each scene also appears as a switch in your home apps.</p>
         </div>
-      </div>
+        <div class="page-actions">
+          <button class="btn btn-primary" id="btn-add-scene"><%- include('partials/icon', { name: 'plus', size: 16, stroke: 2.2 }) %>New scene</button>
+        </div>
+      </header>
 
       <% if (scenes.length === 0) { %>
-        <div class="empty-state">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="0.3">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-          </svg>
-          <p>No scenes yet. Create one to control multiple devices at once.</p>
-          <button class="btn btn-primary" id="btn-add-scene-empty">Add Scene</button>
-        </div>
+      <div class="empty-state">
+        <span class="empty-icon"><%- include('partials/icon', { name: 'scenes', size: 26 }) %></span>
+        <h2>No scenes yet</h2>
+        <p>A scene sets several devices in one go — for example “Movie Time” dims the living room and turns off the downlights.</p>
+        <button class="btn btn-primary" id="btn-add-scene-empty">Create a scene</button>
+      </div>
       <% } else { %>
       <div class="scene-grid">
-        <% scenes.forEach(function(scene) { %>
-        <div class="scene-card" data-scene-id="<%= scene.id %>">
-          <div class="scene-card-body">
-            <div class="scene-name"><%= scene.name %></div>
-            <div class="scene-summary text-muted">
-              <%= scene.actions.length %> action<%= scene.actions.length !== 1 ? 's' : '' %>
-              <% scene.actions.slice(0,3).forEach(function(a) { %>
-                <div class="scene-action-hint">· <%= a.device %> → <%= String(a.value) === 'true' ? 'on' : String(a.value) === 'false' ? 'off' : a.value %></div>
-              <% }); %>
-              <% if (scene.actions.length > 3) { %><div class="scene-action-hint text-muted">+ <%= scene.actions.length - 3 %> more</div><% } %>
-            </div>
+        <% scenes.forEach(function (scene) {
+             var skipped = scene.actions.filter(function (a) { return disabledIds.indexOf(a.device) !== -1; })
+                                        .map(function (a) { return nameOf(a.device); }); %>
+        <article class="card scene-card" data-scene-id="<%= scene.id %>">
+          <h3><%= scene.name %></h3>
+          <p class="sentence"><%= cap(describe.actionsText(scene.actions, nameOf)) %>.</p>
+          <% if (skipped.length) { %>
+          <p class="warn-text" style="margin-top:-6px"><%- include('partials/icon', { name: 'warn', size: 15, stroke: 2 }) %><%= describe.joinNames(skipped) %> <%= skipped.length === 1 ? 'is' : 'are' %> disabled and will be skipped</p>
+          <% } %>
+          <div class="row-actions">
+            <button class="btn btn-primary btn-sm btn-trigger-scene" data-id="<%= scene.id %>"><%- include('partials/icon', { name: 'play', size: 14 }) %>Run</button>
+            <button class="btn btn-secondary btn-sm btn-edit-scene" data-id="<%= scene.id %>"><%- include('partials/icon', { name: 'edit', size: 16 }) %>Edit</button>
+            <button class="btn-icon btn-delete-scene" data-id="<%= scene.id %>" aria-label="Delete <%= scene.name %>" title="Delete"><%- include('partials/icon', { name: 'trash', size: 18 }) %></button>
           </div>
-          <div class="scene-card-footer">
-            <button class="btn-icon btn-edit-scene" data-id="<%= scene.id %>" title="Edit">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13l-3 1 1-3 8.5-8.5z"/>
-              </svg>
-            </button>
-            <button class="btn-icon btn-delete-scene" data-id="<%= scene.id %>" title="Delete">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="2 4 14 4"/><path d="M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M6 7v5M10 7v5"/><rect x="3" y="4" width="10" height="10" rx="1"/>
-              </svg>
-            </button>
-            <button class="btn btn-primary btn-trigger-scene" data-id="<%= scene.id %>">
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="4 2 14 8 4 14"/></svg>
-              Run
-            </button>
-          </div>
-        </div>
+        </article>
         <% }); %>
       </div>
       <% } %>
@@ -66,28 +55,27 @@
   </main>
 </div>
 
-<!-- Add / Edit modal -->
-<div class="modal-overlay" id="scene-modal">
-  <div class="modal" style="max-width:500px">
+<div class="modal-overlay" id="scene-modal" role="dialog" aria-modal="true" aria-labelledby="scene-modal-title">
+  <div class="modal">
     <div class="modal-header">
-      <span class="modal-title" id="scene-modal-title">Add Scene</span>
-      <button class="modal-close">&times;</button>
+      <h2 class="modal-title" id="scene-modal-title">New scene</h2>
+      <button class="modal-close" aria-label="Close">&times;</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="scene-id">
       <div class="form-group">
-        <label class="form-label">Name</label>
-        <input type="text" class="form-input" id="scene-name" placeholder="e.g. Goodnight, Movie Time">
+        <label class="form-label" for="scene-name">Name</label>
+        <input type="text" class="form-input" id="scene-name" placeholder="e.g. Movie Time, Goodnight">
       </div>
       <div class="form-group">
-        <label class="form-label">Actions</label>
+        <label class="form-label">What should it do?</label>
         <div id="scene-actions-list"></div>
-        <button class="btn btn-secondary btn-sm" id="btn-add-scene-action" style="margin-top:8px">+ Add action</button>
+        <button class="btn btn-dashed btn-sm" id="btn-add-scene-action" type="button">+ Add a device</button>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary modal-close">Cancel</button>
-      <button class="btn btn-primary" id="btn-save-scene">Save</button>
+      <button class="btn btn-primary" id="btn-save-scene">Save scene</button>
     </div>
   </div>
 </div>
@@ -95,6 +83,7 @@
 <script>
   window.DEVICES = <%- JSON.stringify(devices).replace(/</g, '\\u003c') %>;
 </script>
+<script src="/js/main.js"></script>
 <script src="/js/scenes.js"></script>
 </body>
 </html>

@@ -103,7 +103,7 @@
     capSel.className = 'form-input act-cap';
     caps.forEach(function (c) {
       var o = document.createElement('option');
-      o.value = c; o.textContent = c;
+      o.value = c; o.textContent = capLabel(c);
       if (c === capability) o.selected = true;
       capSel.appendChild(o);
     });
@@ -129,7 +129,7 @@
       var newCaps = settableCaps(newDev.capabilities || ['power']);
       capSel.innerHTML = '';
       newCaps.forEach(function (c) {
-        var o = document.createElement('option'); o.value = c; o.textContent = c; capSel.appendChild(o);
+        var o = document.createElement('option'); o.value = c; o.textContent = capLabel(c); capSel.appendChild(o);
       });
       rebuildVal();
     });
@@ -153,7 +153,7 @@
   // ── Open add ──────────────────────────────────────────────────────────────
 
   function openAdd() {
-    document.getElementById('scene-modal-title').textContent = 'Add Scene';
+    document.getElementById('scene-modal-title').textContent = 'New scene';
     document.getElementById('scene-id').value = '';
     document.getElementById('scene-name').value = '';
     document.getElementById('scene-actions-list').innerHTML = '';
@@ -174,7 +174,7 @@
       fetch('/api/scenes').then(function (r) { return r.json(); }).then(function (list) {
         var scene = list.find(function (s) { return s.id === id; });
         if (!scene) return;
-        document.getElementById('scene-modal-title').textContent = 'Edit Scene';
+        document.getElementById('scene-modal-title').textContent = 'Edit scene';
         document.getElementById('scene-id').value = scene.id;
         document.getElementById('scene-name').value = scene.name;
         document.getElementById('scene-actions-list').innerHTML = '';

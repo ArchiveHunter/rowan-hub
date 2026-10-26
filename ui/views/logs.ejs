@@ -1,40 +1,32 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-  <%- include('partials/head') %>
+  <%- include('partials/head', { title: 'Logs' }) %>
 </head>
 <body>
-<div class="app-layout">
-  <%- include('partials/sidebar', { page: 'logs' }) %>
-  <main class="main-content">
-    <div class="page-container">
+<div class="app">
+  <%- include('partials/sidebar') %>
+  <main class="main">
+    <div class="container">
+      <%- include('partials/settings-tabs') %>
 
-      <div class="page-header">
-        <h1>Logs</h1>
-        <div class="header-actions">
-          <select class="input-sm" id="log-filter" aria-label="Filter log level">
-            <option value="all">All levels</option>
+      <div class="page-head" style="align-items:center">
+        <p class="page-sub" style="margin:0">Live activity from Rowan Hub and your devices.</p>
+        <div class="page-actions">
+          <label class="sr-only" for="log-filter">Show</label>
+          <select id="log-filter" style="width:auto;min-width:150px">
+            <option value="all">Everything</option>
             <option value="info">Info</option>
-            <option value="warn">Warn</option>
-            <option value="error">Error</option>
+            <option value="warn">Warnings</option>
+            <option value="error">Errors</option>
           </select>
-          <button class="btn btn-ghost" id="btn-pause">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-              <rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/>
-            </svg>
-            Pause
-          </button>
-          <button class="btn btn-ghost" id="btn-clear">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-              <path d="M2 4h12M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M6.5 7v5M9.5 7v5"/><path d="M3 4l.8 9a1 1 0 0 0 1 .9h6.4a1 1 0 0 0 1-.9L13 4"/>
-            </svg>
-            Clear
-          </button>
+          <button class="btn btn-secondary" id="btn-pause">Pause</button>
+          <button class="btn btn-secondary" id="btn-clear">Clear</button>
         </div>
       </div>
 
       <div id="log-console" class="log-console" role="log" aria-live="polite" aria-label="Log output">
-        <div class="log-empty">Connecting to log stream…</div>
+        <div class="log-empty">Connecting to the log stream…</div>
       </div>
 
     </div>

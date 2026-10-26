@@ -1,0 +1,16 @@
+<%
+  var tabs = [
+    { id: 'general', href: '/settings', label: 'General' },
+    { id: 'integrations', href: '/plugins', label: 'Integrations' },
+    { id: 'system', href: '/system', label: 'System' },
+    { id: 'logs', href: '/logs', label: 'Logs' },
+  ];
+%>
+<div class="page-head">
+  <h1>Settings</h1>
+</div>
+<nav class="subnav" aria-label="Settings sections">
+  <% tabs.forEach(function (t) { %>
+  <a href="<%= t.href %>"<%- locals.tab === t.id ? ' aria-current="page"' : '' %>><%= t.label %></a>
+  <% }); %>
+</nav>

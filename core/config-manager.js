@@ -97,6 +97,17 @@ const PLUGIN_SCHEMAS = {
   },
 };
 
+// Every device can have a room (groups the Home screen) and a type (its icon)
+const COMMON_FIELDS = [
+  { name: 'room', label: 'Room', type: 'text', placeholder: 'e.g. Living Room — groups devices on the Home screen' },
+  { name: 'kind', label: 'Type', type: 'select', options: ['', 'light', 'plug', 'strip', 'switch', 'climate', 'sensor', 'blind'],
+    optionLabels: ['Automatic', 'Light', 'Plug / socket', 'LED strip', 'Switch', 'Heating / cooling', 'Sensor', 'Blind'] },
+];
+for (const schema of Object.values(PLUGIN_SCHEMAS)) {
+  const at = schema.fields.findIndex(f => f.name === 'name') + 1;
+  schema.fields.splice(at, 0, ...COMMON_FIELDS);
+}
+
 function load() {
   return yaml.load(fs.readFileSync(CONFIG_PATH, 'utf8'));
 }

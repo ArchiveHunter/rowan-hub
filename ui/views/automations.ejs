@@ -1,149 +1,132 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-  <%- include('partials/head') %>
+  <%- include('partials/head', { title: 'Automations' }) %>
 </head>
 <body>
-<div class="app-layout">
-  <%- include('partials/sidebar', { page: 'automations' }) %>
-  <main class="main-content">
-    <div class="page-container">
+<%
+  function nameOf(id) { return deviceNames[id] || id; }
+  var active = automations.filter(function (a) { return a.enabled; });
+  var paused = automations.filter(function (a) { return !a.enabled; });
+  var groups = [];
+  if (active.length) groups.push({ title: 'Active', items: active });
+  if (paused.length) groups.push({ title: 'Paused', items: paused });
+%>
+<div class="app">
+  <%- include('partials/sidebar') %>
+  <main class="main">
+    <div class="container container--narrow">
 
-      <div class="page-header">
-        <h1>Automations</h1>
-        <div class="header-actions">
-          <button class="btn btn-primary" id="btn-add-auto">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg>
-            Add Automation
-          </button>
+      <header class="page-head">
+        <div>
+          <h1>Automations</h1>
+          <p class="page-sub"><%= active.length %> active · <%= paused.length %> paused · sunrise and sunset follow your location</p>
         </div>
-      </div>
+        <div class="page-actions">
+          <button class="btn btn-primary" id="btn-add-auto"><%- include('partials/icon', { name: 'plus', size: 16, stroke: 2.2 }) %>New automation</button>
+        </div>
+      </header>
 
       <% if (automations.length === 0) { %>
-        <div class="empty-state">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" opacity="0.3">
-            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-          </svg>
-          <p>No automations yet. Add one to schedule your devices.</p>
-          <button class="btn btn-primary" id="btn-add-auto-empty">Add Automation</button>
-        </div>
-      <% } else { %>
-      <div class="card">
-        <table class="device-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Trigger</th>
-              <th>Actions</th>
-              <th>Enabled</th>
-              <th style="text-align:right">Edit</th>
-            </tr>
-          </thead>
-          <tbody id="auto-list">
-            <% automations.forEach(function(auto) { %>
-            <tr data-auto-id="<%= auto.id %>">
-              <td><strong><%= auto.name %></strong></td>
-              <td class="text-muted" style="font-size:12px">
-                <% if (auto.trigger.type === 'time') { %>
-                  At <strong><%= auto.trigger.time %></strong>
-                <% } else { %>
-                  At <strong><%= auto.trigger.type %></strong>
-                  <% if (auto.trigger.offset && auto.trigger.offset !== 0) { %>
-                    (<%= auto.trigger.offset > 0 ? '+' : '' %><%= auto.trigger.offset %>min)
-                  <% } %>
-                <% } %>
-                <% if (auto.trigger.days && auto.trigger.days.length > 0) { %>
-                  <br><span><%- ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].filter((_,i) => auto.trigger.days.includes(i)).join(', ') %></span>
-                <% } else { %>
-                  <br><span>Every day</span>
-                <% } %>
-              </td>
-              <td class="text-muted" style="font-size:12px">
-                <% auto.actions.forEach(function(a) { %>
-                  <div><%= a.device %> → <%= a.capability %> <strong><%= String(a.value) %></strong></div>
-                <% }); %>
-              </td>
-              <td>
-                <label class="toggle-switch">
-                  <input type="checkbox" class="auto-toggle" data-id="<%= auto.id %>" <%= auto.enabled ? 'checked' : '' %>>
-                  <span class="toggle-slider"></span>
-                </label>
-              </td>
-              <td style="text-align:right">
-                <button class="btn-icon btn-edit-auto" data-id="<%= auto.id %>" title="Edit">
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13l-3 1 1-3 8.5-8.5z"/>
-                  </svg>
-                </button>
-                <button class="btn-icon btn-delete-auto" data-id="<%= auto.id %>" title="Delete">
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="2 4 14 4"/><path d="M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M6 7v5M10 7v5"/><rect x="3" y="4" width="10" height="10" rx="1"/>
-                  </svg>
-                </button>
-              </td>
-            </tr>
-            <% }); %>
-          </tbody>
-        </table>
+      <div class="empty-state">
+        <span class="empty-icon"><%- include('partials/icon', { name: 'automations', size: 26 }) %></span>
+        <h2>No automations yet</h2>
+        <p>Turn devices on or off at a set time, or at sunrise and sunset — for example “At sunset, turn on the driveway lights”.</p>
+        <button class="btn btn-primary" id="btn-add-auto-empty">Create an automation</button>
       </div>
       <% } %>
+
+      <% groups.forEach(function (g) { %>
+      <section aria-label="<%= g.title %> automations">
+        <div class="section-head"><h2><%= g.title %></h2><span class="count"><%= g.items.length %></span></div>
+        <% g.items.forEach(function (auto) {
+             var t = auto.trigger || {};
+             var icon = t.type === 'sunrise' ? 'sunrise' : t.type === 'sunset' ? 'sunset' : 'automations';
+             var skipped = (auto.actions || []).filter(function (a) { return disabledIds.indexOf(a.device) !== -1; })
+                                               .map(function (a) { return nameOf(a.device); });
+             skipped = skipped.filter(function (n, i) { return skipped.indexOf(n) === i; });
+             var everyActionSkipped = skipped.length && (auto.actions || []).every(function (a) { return disabledIds.indexOf(a.device) !== -1; });
+             var next = nextRuns[auto.id]; %>
+        <article class="card auto-card<%= auto.enabled ? '' : ' is-paused' %>" data-auto-id="<%= auto.id %>">
+          <span class="row-icon"><%- include('partials/icon', { name: icon, size: 22 }) %></span>
+          <div class="row-main">
+            <div class="row-title"><%= auto.name %><% if (!auto.enabled) { %><span class="pill">Paused</span><% } %></div>
+            <p class="sentence"><strong><%= describe.triggerText(t) %></strong>, <%= describe.actionsText(auto.actions, nameOf) %></p>
+            <% if (skipped.length) { %>
+            <p class="warn-text"><%- include('partials/icon', { name: 'warn', size: 15, stroke: 2 }) %>
+              <%= describe.joinNames(skipped) %> <%= skipped.length === 1 ? 'is' : 'are' %> disabled<%= everyActionSkipped ? ', so this has nothing to control' : ' and will be skipped' %>
+            </p>
+            <% } %>
+          </div>
+          <div class="row-meta">
+            <% if (auto.enabled && next) { %><strong>Next run</strong><%= describe.whenText(next) %>
+            <% } else if (auto.enabled) { %><strong>Next run</strong>Not this week
+            <% } else { %><strong>Paused</strong>Won’t run<% } %>
+          </div>
+          <label class="toggle-switch" title="<%= auto.enabled ? 'Pause' : 'Resume' %>">
+            <input type="checkbox" class="auto-toggle" data-id="<%= auto.id %>" aria-label="<%= auto.enabled ? 'Pause' : 'Resume' %> <%= auto.name %>" <%= auto.enabled ? 'checked' : '' %>>
+            <span class="toggle-slider"></span>
+          </label>
+          <div class="row-actions" style="margin-left:0">
+            <button class="btn btn-secondary btn-sm btn-edit-auto" data-id="<%= auto.id %>"><%- include('partials/icon', { name: 'edit', size: 16 }) %>Edit</button>
+            <button class="btn-icon btn-delete-auto" data-id="<%= auto.id %>" aria-label="Delete <%= auto.name %>" title="Delete"><%- include('partials/icon', { name: 'trash', size: 18 }) %></button>
+          </div>
+        </article>
+        <% }); %>
+      </section>
+      <% }); %>
 
     </div>
   </main>
 </div>
 
-<!-- Add / Edit modal -->
-<div class="modal-overlay" id="auto-modal">
-  <div class="modal" style="max-width:520px">
+<div class="modal-overlay" id="auto-modal" role="dialog" aria-modal="true" aria-labelledby="auto-modal-title">
+  <div class="modal">
     <div class="modal-header">
-      <span class="modal-title" id="auto-modal-title">Add Automation</span>
-      <button class="modal-close">&times;</button>
+      <h2 class="modal-title" id="auto-modal-title">New automation</h2>
+      <button class="modal-close" aria-label="Close">&times;</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="auto-id">
-
       <div class="form-group">
-        <label class="form-label">Name</label>
-        <input type="text" class="form-input" id="auto-name" placeholder="e.g. Driveway Lights On at Sunset">
+        <label class="form-label" for="auto-name">Name</label>
+        <input type="text" class="form-input" id="auto-name" placeholder="e.g. Driveway lights at sunset">
       </div>
-
       <div class="form-group">
-        <label class="form-label">Trigger type</label>
+        <label class="form-label" for="auto-type">When</label>
         <select class="form-input" id="auto-type">
-          <option value="time">Specific time</option>
-          <option value="sunrise">Sunrise</option>
-          <option value="sunset">Sunset</option>
+          <option value="time">At a set time</option>
+          <option value="sunrise">At sunrise</option>
+          <option value="sunset">At sunset</option>
         </select>
       </div>
-
       <div class="form-group" id="group-time">
-        <label class="form-label">Time</label>
+        <label class="form-label" for="auto-time">Time</label>
         <input type="time" class="form-input" id="auto-time" value="00:00">
       </div>
-
       <div class="form-group" id="group-offset" style="display:none">
-        <label class="form-label">Offset (minutes, negative = before)</label>
+        <label class="form-label" for="auto-offset">Offset in minutes</label>
         <input type="number" class="form-input" id="auto-offset" value="0" min="-120" max="120">
+        <span class="form-hint">Negative = before, e.g. -30 runs half an hour before sunset.</span>
       </div>
-
       <div class="form-group">
-        <label class="form-label">Days (leave all unchecked = every day)</label>
+        <span class="form-label">On these days</span>
         <div class="day-picker">
-          <% ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(function(d, i) { %>
+          <% ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(function (d, i) { %>
           <label class="day-btn"><input type="checkbox" class="day-check" value="<%= i %>"><span><%= d %></span></label>
           <% }); %>
         </div>
+        <span class="form-hint">Leave them all unticked to run every day.</span>
       </div>
-
       <div class="form-group">
-        <label class="form-label">Actions</label>
+        <span class="form-label">What should happen?</span>
         <div id="actions-list"></div>
-        <button class="btn btn-secondary btn-sm" id="btn-add-action" style="margin-top:8px">+ Add action</button>
+        <button class="btn btn-dashed btn-sm" id="btn-add-action" type="button">+ Add a device</button>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary modal-close">Cancel</button>
-      <button class="btn btn-primary" id="btn-save-auto">Save</button>
+      <button class="btn btn-primary" id="btn-save-auto">Save automation</button>
     </div>
   </div>
 </div>
@@ -151,6 +134,7 @@
 <script>
   window.DEVICES = <%- JSON.stringify(devices).replace(/</g, '\\u003c') %>;
 </script>
+<script src="/js/main.js"></script>
 <script src="/js/automations.js"></script>
 </body>
 </html>

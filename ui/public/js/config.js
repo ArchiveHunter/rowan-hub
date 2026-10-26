@@ -161,16 +161,33 @@
         return;
       }
 
-      var input = document.createElement('input');
-      input.type = field.type === 'number' ? 'number' : (field.type === 'password' ? 'password' : 'text');
+      var input;
+      if (field.type === 'select') {
+        input = document.createElement('select');
+        (field.options || []).forEach(function (opt, i) {
+          var o = document.createElement('option');
+          o.value = opt;
+          o.textContent = (field.optionLabels && field.optionLabels[i]) || opt;
+          input.appendChild(o);
+        });
+      } else {
+        input = document.createElement('input');
+        input.type = field.type === 'number' ? 'number' : (field.type === 'password' ? 'password' : 'text');
+        if (field.placeholder) input.placeholder = field.placeholder;
+      }
       input.id = containerId + '-' + field.name;
       input.name = field.name;
-      if (field.placeholder) input.placeholder = field.placeholder;
       if (field.required) input.required = true;
       if (existingData && existingData[field.name] !== undefined && existingData[field.name] !== null) {
         input.value = existingData[field.name];
       }
       group.appendChild(input);
+      if (field.hint) {
+        var fieldHint = document.createElement('span');
+        fieldHint.className = 'form-hint';
+        fieldHint.textContent = field.hint;
+        group.appendChild(fieldHint);
+      }
       container.appendChild(group);
     });
   }
@@ -194,7 +211,8 @@
         throw new Error(field.label + ' is required');
       }
       var val = el.value.trim();
-      if (val !== '') {
+      // Room and type can be cleared; other blank fields keep their saved value
+      if (val !== '' || field.name === 'room' || field.name === 'kind') {
         data[field.name] = field.type === 'number' ? (parseFloat(val) || 0) : val;
       }
     });

@@ -103,7 +103,7 @@
       if (pairingSecondsLeft <= 0) {
         clearInterval(pairingTimer);
         pairingTimer = null;
-        if (pairBtn) { pairBtn.disabled = false; pairBtn.textContent = 'Open for pairing'; }
+        if (pairBtn) { pairBtn.disabled = false; pairBtn.textContent = 'Open pairing window'; }
         if (pairingStatus) pairingStatus.style.display = 'none';
       }
     }, 1000);
@@ -120,13 +120,13 @@
             startPairingCountdown(data.timeout || 900);
           } else {
             pairBtn.disabled = false;
-            pairBtn.textContent = 'Open for pairing';
+            pairBtn.textContent = 'Open pairing window';
             showToast(data.error || 'Failed to open pairing window', 'error');
           }
         })
         .catch(function () {
           pairBtn.disabled = false;
-          pairBtn.textContent = 'Open for pairing';
+          pairBtn.textContent = 'Open pairing window';
           showToast('Failed to open pairing window', 'error');
         });
     });
@@ -139,7 +139,7 @@
       if (pairBtn) { pairBtn.disabled = true; pairBtn.textContent = 'Pairing window open…'; }
       if (pairingStatus) pairingStatus.style.display = '';
     } else if (windowStatus === 0 && !pairingTimer) {
-      if (pairBtn) { pairBtn.disabled = false; pairBtn.textContent = 'Open for pairing'; }
+      if (pairBtn) { pairBtn.disabled = false; pairBtn.textContent = 'Open pairing window'; }
       if (pairingStatus) pairingStatus.style.display = 'none';
     }
   }
@@ -160,7 +160,7 @@
 
   function setPushUI(subscribed) {
     if (!pushBtn) return;
-    pushBtn.textContent = subscribed ? 'Disable notifications' : 'Enable notifications';
+    pushBtn.textContent = subscribed ? 'Turn off notifications' : 'Turn on notifications';
     pushBtn.className = subscribed ? 'btn btn-secondary' : 'btn btn-primary';
     if (pushStatusText) pushStatusText.textContent = subscribed ? 'Notifications are on for this browser' : '';
   }

@@ -117,7 +117,7 @@
     capSel.className = 'form-input act-cap';
     caps.forEach(function (c) {
       var o = document.createElement('option');
-      o.value = c; o.textContent = c;
+      o.value = c; o.textContent = capLabel(c);
       if (c === capability) o.selected = true;
       capSel.appendChild(o);
     });
@@ -143,7 +143,7 @@
       var newCaps = settableCaps(newDev.capabilities || ['power']);
       capSel.innerHTML = '';
       newCaps.forEach(function (c) {
-        var o = document.createElement('option'); o.value = c; o.textContent = c; capSel.appendChild(o);
+        var o = document.createElement('option'); o.value = c; o.textContent = capLabel(c); capSel.appendChild(o);
       });
       rebuildVal();
     });
@@ -167,7 +167,7 @@
   // ── Open add modal ─────────────────────────────────────────────────────────
 
   function openAdd() {
-    document.getElementById('auto-modal-title').textContent = 'Add Automation';
+    document.getElementById('auto-modal-title').textContent = 'New automation';
     document.getElementById('auto-id').value = '';
     document.getElementById('auto-name').value = '';
     typeEl.value = 'time';
@@ -193,7 +193,7 @@
       fetch('/api/automations').then(function (r) { return r.json(); }).then(function (list) {
         var auto = list.find(function (a) { return a.id === id; });
         if (!auto) return;
-        document.getElementById('auto-modal-title').textContent = 'Edit Automation';
+        document.getElementById('auto-modal-title').textContent = 'Edit automation';
         document.getElementById('auto-id').value = auto.id;
         document.getElementById('auto-name').value = auto.name;
         typeEl.value = auto.trigger.type;
@@ -263,7 +263,7 @@
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: this.checked }),
-      });
+      }).then(function () { location.reload(); }); // regroup active / paused + refresh next run
     });
   });
 

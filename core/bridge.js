@@ -46,7 +46,7 @@ class RowanHubBridge {
         uniqueId,
         hardwareVersion: 1,
         hardwareVersionString: '1',
-        softwareVersion: 12,
+        softwareVersion: 13,
         softwareVersionString: require('../package.json').version,
       },
     });
@@ -131,9 +131,16 @@ class RowanHubBridge {
   }
 
   getCommissioningInfo() {
-    let qrPairingCode = null;
+    let qrPairingCode = null, manualPairingCode = null, fabrics = [];
     try {
-      qrPairingCode = this._server?.state?.commissioning?.pairingCodes?.qrPairingCode ?? null;
+      const codes = this._server?.state?.commissioning?.pairingCodes;
+      qrPairingCode = codes?.qrPairingCode ?? null;
+      manualPairingCode = codes?.manualPairingCode ?? null;
+    } catch {}
+    try {
+      // Which home apps (Matter fabrics) the bridge is paired with
+      fabrics = (this._server?.state?.operationalCredentials?.fabrics || [])
+        .map(f => ({ vendorId: f.vendorId, label: f.label || '' }));
     } catch {}
     return {
       passcode: this.config.passcode || 20202021,
@@ -141,6 +148,8 @@ class RowanHubBridge {
       port: this.config.port || 5540,
       commissioned: this._server?.lifecycle?.isCommissioned ?? false,
       qrPairingCode,
+      manualPairingCode,
+      fabrics,
       windowStatus: this._windowOpen ? 2 : 0,
     };
   }

@@ -1,11 +1,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Rowan Hub</title>
+  <title><%= locals.title ? locals.title + ' · ' : '' %>Rowan Hub</title>
+  <script>
+    // Apply the saved theme before first paint (light | dark | system)
+    (function () {
+      var t = 'system';
+      try { t = localStorage.getItem('rowan-hub-theme') || 'system'; } catch (e) {}
+      if (['light', 'dark', 'system'].indexOf(t) === -1) t = 'system';
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#7c6af7">
+  <meta name="theme-color" content="#F6F5F1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121512" media="(prefers-color-scheme: dark)">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Rowan Hub">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <link rel="stylesheet" href="/css/style.css">

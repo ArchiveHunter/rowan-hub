@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-  <%- include('partials/head') %>
+  <%- include('partials/head', { title: 'Sign in' }) %>
   <style>
     .login-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
     .login-card {
@@ -21,7 +21,7 @@
 <div class="login-shell">
   <form class="login-card" id="login-form">
     <div class="login-logo">
-      <img src="/rowan-hub.png" alt="Rowan Hub">
+      <img src="/icon-192.png" alt="Rowan Hub">
       <span>Rowan Hub</span>
     </div>
     <div class="field">
@@ -38,9 +38,6 @@
 </div>
 <script>
   var NEXT = <%- JSON.stringify(next).replace(/</g, '\\u003c') %>;
-  (function () {
-    try { document.documentElement.dataset.theme = localStorage.getItem('rowan-hub-theme') || 'dark'; } catch (e) {}
-  })();
   document.getElementById('login-form').addEventListener('submit', function (e) {
     e.preventDefault();
     var btn = document.getElementById('login-btn');

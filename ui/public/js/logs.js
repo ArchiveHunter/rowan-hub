@@ -89,9 +89,7 @@
   if (pauseBtn) {
     pauseBtn.addEventListener('click', function () {
       paused = !paused;
-      pauseBtn.innerHTML = paused
-        ? '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polygon points="3,2 13,8 3,14"/></svg> Resume'
-        : '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg> Pause';
+      pauseBtn.textContent = paused ? 'Resume' : 'Pause';
     });
   }
 

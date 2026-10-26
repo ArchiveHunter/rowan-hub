@@ -1,158 +1,162 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-  <%- include('partials/head') %>
+  <%- include('partials/head', { title: 'Home' }) %>
 </head>
 <body>
-<div class="app-layout">
-  <%- include('partials/sidebar', { page: 'dashboard' }) %>
-  <main class="main-content">
-    <div class="page-container">
+<%
+  var OFFLINE_MS = 2 * 60 * 1000;
+  var now = Date.now();
+  function isOffline(d) { return !!d.lastSeen && now - d.lastSeen > OFFLINE_MS; }
+  function hasPower(d) { return d.capabilities.indexOf('power') !== -1; }
+  function adjustable(d) {
+    return d.capabilities.indexOf('brightness') !== -1 || d.capabilities.indexOf('color') !== -1 || (d.presets && d.presets.length > 0);
+  }
+  function statusText(d) {
+    var s = d.state || {};
+    if (isOffline(d)) return 'Offline';
+    if (hasPower(d)) {
+      if (!s.on) return 'Off';
+      return typeof s.brightness === 'number' && d.capabilities.indexOf('brightness') !== -1 ? 'On · ' + s.brightness + '%' : 'On';
+    }
+    if (typeof s.temperature === 'number') return s.temperature + '°C' + (typeof s.humidity === 'number' ? ' · ' + s.humidity + '%' : '');
+    if (typeof s.humidity === 'number') return s.humidity + '% humidity';
+    return '—';
+  }
+  // Group by room, keeping the order rooms first appear; unassigned last
+  var rooms = [], byRoom = {};
+  devices.forEach(function (d) {
+    var r = d.room || '';
+    if (!byRoom[r]) { byRoom[r] = []; rooms.push(r); }
+    byRoom[r].push(d);
+  });
+  rooms.sort(function (a, b) { return (a === '') - (b === ''); });
+  var anyRoom = rooms.some(function (r) { return r !== ''; });
+  var powered = devices.filter(hasPower);
+  var onCount = powered.filter(function (d) { return d.state && d.state.on; }).length;
+  var offlineCount = devices.filter(isOffline).length;
+%>
+<div class="app">
+  <%- include('partials/sidebar') %>
+  <main class="main">
+    <div class="container">
 
-      <div class="page-header">
-        <h1>Dashboard</h1>
-        <div class="header-stats">
-          <span class="stat-pill">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1" y="3" width="14" height="10" rx="1.5"/></svg>
-            <%= devices.length %> device<%= devices.length !== 1 ? 's' : '' %>
-          </span>
-          <%
-            var onlineCount = devices.filter(function(d) { return d.state && Object.keys(d.state).length > 0; }).length;
-          %>
-          <span class="stat-pill stat-pill--success">
-            <span class="status-dot"></span>
-            <%= onlineCount %> online
-          </span>
+      <header class="page-head">
+        <div>
+          <h1>Home</h1>
+          <p class="page-sub" id="home-summary"><%= onCount %> of <%= powered.length %> on · <%= offlineCount ? offlineCount + ' offline' : 'all online' %></p>
         </div>
-      </div>
+        <% if (commissioned && pairedApps.length) { %>
+        <span class="status-line"><span class="dot dot--on"></span>Paired with <%= describe.joinNames(pairedApps) %></span>
+        <% } else { %>
+        <a class="status-line" href="/settings"><span class="dot"></span>Not paired with a home app yet — pair now</a>
+        <% } %>
+      </header>
 
-      <% if (devices.length === 0) { %>
-        <div class="empty-state">
-          <svg width="48" height="48" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.3">
-            <rect x="1" y="3" width="14" height="10" rx="1.5"/>
-            <path d="M4 6h2M4 9h1"/>
-            <circle cx="11" cy="7.5" r="1.5"/>
-          </svg>
-          <p>No devices configured.</p>
-          <a href="/devices" class="btn btn-primary">Add a device</a>
-        </div>
-      <% } else { %>
-      <div class="device-grid">
-        <% devices.forEach(function(device) { %>
-          <%
-            var hasBrightness = device.capabilities.includes('brightness');
-            var hasColor = device.capabilities.includes('color');
-            var hasPresets = device.presets && device.presets.length > 0;
-            var hue = device.state.hue || 0;
-            var sat = device.state.saturation || 100;
-            var hsl = hasColor ? 'hsl(' + hue + ',' + sat + '%,50%)' : '#888';
-            var isOn = !!device.state.on;
-            var hasState = device.state && Object.keys(device.state).length > 0;
-          %>
-          <div class="device-card" data-device-id="<%= device.id %>" data-on="<%= isOn ? 'true' : 'false' %>">
-
-            <div class="card-header">
-              <div class="card-header-left">
-                <span class="plugin-badge plugin-badge--<%= device.plugin %>"><%= device.plugin %></span>
-                <span class="device-name"><%= device.name %></span>
-              </div>
-              <button
-                class="power-btn<%= isOn ? ' power-btn--on' : '' %>"
-                data-device-id="<%= device.id %>"
-                aria-label="Toggle <%= device.name %>"
-                aria-pressed="<%= isOn ? 'true' : 'false' %>"
-                title="<%= isOn ? 'Turn off' : 'Turn on' %>"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
-                  <line x1="12" y1="2" x2="12" y2="12"/>
-                </svg>
-              </button>
-            </div>
-
-            <% if (hasBrightness) { %>
-            <div class="control-row">
-              <span class="control-label">Brightness</span>
-              <input
-                type="range"
-                class="brightness-slider"
-                data-device-id="<%= device.id %>"
-                min="0" max="100"
-                value="<%= device.state.brightness !== undefined ? device.state.brightness : 100 %>"
-                aria-label="Brightness for <%= device.name %>"
-              >
-            </div>
-            <% } %>
-
-            <% if (hasColor) { %>
-            <div class="control-row">
-              <span class="control-label">Colour</span>
-              <div class="color-swatch-wrap">
-                <div
-                  class="color-swatch"
-                  data-device-id="<%= device.id %>"
-                  style="background: <%= hsl %>;"
-                  title="Pick colour"
-                  role="button"
-                  tabindex="0"
-                ></div>
-                <input
-                  type="color"
-                  class="color-input"
-                  data-device-id="<%= device.id %>"
-                  aria-hidden="true"
-                  tabindex="-1"
-                >
-              </div>
-            </div>
-            <% } %>
-
-            <% if (hasPresets) { %>
-            <div class="preset-row">
-              <% device.presets.forEach(function(presetName) { %>
-                <button
-                  class="preset-btn<%= device.state.activePresetName === presetName ? ' preset-btn--active' : '' %>"
-                  data-device-id="<%= device.id %>"
-                  data-preset="<%= presetName %>"
-                ><%= presetName %></button>
-              <% }); %>
-            </div>
-            <% } %>
-
-            <div class="card-footer">
-              <span class="status-dot health-dot" data-device-id="<%= device.id %>"></span>
-              <span><%= device.plugin %></span>
-              <span class="separator">·</span>
-              <span class="health-label" data-device-id="<%= device.id %>">–</span>
-            </div>
-
+      <% if (comingUp || scenes.length) { %>
+      <div class="home-strip">
+        <% if (comingUp) { %>
+        <section class="card upnext" aria-label="Coming up">
+          <span class="upnext-icon"><%- include('partials/icon', { name: 'automations', size: 22 }) %></span>
+          <div>
+            <div class="upnext-when">Coming up · <%= comingUp.when %></div>
+            <div class="upnext-text"><%= comingUp.text %></div>
           </div>
-        <% }); %>
+          <a href="/automations" style="font-size:14px;font-weight:600;white-space:nowrap">All automations</a>
+        </section>
+        <% } %>
+        <section class="card scenes-card" aria-label="Scenes">
+          <span class="label">Scenes</span>
+          <% scenes.forEach(function (scene) { %>
+          <button class="btn btn-primary scene-run" data-scene-id="<%= scene.id %>">
+            <%- include('partials/icon', { name: 'play', size: 16 }) %><%= scene.name %>
+          </button>
+          <% }); %>
+          <a class="btn btn-dashed" href="/scenes"><%= scenes.length ? 'Manage' : '+ New scene' %></a>
+        </section>
       </div>
       <% } %>
 
-      <% if (scenes.length > 0) { %>
-      <div class="section-header" style="margin-top:28px">
-        <span class="section-title">Scenes</span>
-        <a href="/scenes" class="section-link">Manage</a>
+      <% if (devices.length === 0) { %>
+      <div class="empty-state">
+        <span class="empty-icon"><%- include('partials/icon', { name: 'light', size: 26 }) %></span>
+        <h2>No devices yet</h2>
+        <p>Add your lights, plugs and LED strips — they'll show up here and in Apple Home, Google Home and Alexa.</p>
+        <a class="btn btn-primary" href="/devices">Add your first device</a>
       </div>
-      <div class="scene-strip">
-        <% scenes.forEach(function(scene) { %>
-        <button class="scene-strip-btn" data-scene-id="<%= scene.id %>">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><polygon points="8 1 10.5 5.5 16 6.4 12 10.3 12.9 15.8 8 13.2 3.1 15.8 4 10.3 0 6.4 5.5 5.5"/></svg>
-          <%= scene.name %>
-        </button>
+      <% } else { %>
+      <div class="rooms">
+        <% rooms.forEach(function (room) {
+             var list = byRoom[room];
+             var n = list.filter(function (d) { return d.state && d.state.on; }).length; %>
+        <section aria-label="<%= room || 'Other devices' %>">
+          <div class="section-head">
+            <h2><%= room || (anyRoom ? 'Other devices' : 'Devices') %></h2>
+            <span class="count" data-room-count><%= n ? n + ' on' : 'All off' %></span>
+          </div>
+          <div class="tile-grid">
+            <% list.forEach(function (d) {
+                 var on = hasPower(d) && !!(d.state && d.state.on); %>
+            <div class="tile" data-device-id="<%= d.id %>" data-on="<%= on %>" data-offline="<%= isOffline(d) %>">
+              <button class="tile-main" <%= hasPower(d) ? '' : 'disabled' %> aria-pressed="<%= on %>" aria-label="<%= d.name %>, <%= statusText(d) %>">
+                <span class="tile-icon"><%- include('partials/icon', { name: d.kind, size: 22 }) %></span>
+                <span class="tile-text">
+                  <span class="tile-name"><%= d.name %></span>
+                  <span class="tile-status"><%= statusText(d) %></span>
+                </span>
+              </button>
+              <% if (adjustable(d)) { %>
+              <button class="tile-adjust" aria-label="Adjust <%= d.name %>" data-device-id="<%= d.id %>">
+                <%- include('partials/icon', { name: 'chevron', size: 18, stroke: 2 }) %>
+              </button>
+              <% } %>
+            </div>
+            <% }); %>
+          </div>
+        </section>
         <% }); %>
+        <% if (!anyRoom) { %>
+        <p class="text-muted" style="font-size:14px">Tip: give each device a room on the <a href="/devices">Devices</a> page to group them here.</p>
+        <% } %>
       </div>
       <% } %>
 
     </div>
   </main>
 </div>
+
+<!-- Device controls -->
+<dialog class="sheet" id="device-sheet" aria-labelledby="sheet-title">
+  <div class="sheet-head">
+    <div>
+      <h2 id="sheet-title"></h2>
+      <p id="sheet-sub"></p>
+    </div>
+    <button class="btn-icon" id="sheet-close" aria-label="Close"><%- include('partials/icon', { name: 'x', size: 18, stroke: 2 }) %></button>
+  </div>
+  <div class="sheet-section" id="sheet-power-wrap">
+    <button class="power-row" id="sheet-power" aria-pressed="false"><span id="sheet-power-label">Off</span><span class="track" aria-hidden="true"></span></button>
+  </div>
+  <div class="sheet-section" id="sheet-bright-wrap">
+    <label class="sheet-label" for="sheet-bright">Brightness <span id="sheet-bright-val"></span></label>
+    <input type="range" id="sheet-bright" min="1" max="100">
+  </div>
+  <div class="sheet-section" id="sheet-colour-wrap">
+    <div class="sheet-label">Colour</div>
+    <div class="swatches" id="sheet-swatches"></div>
+  </div>
+  <div class="sheet-section" id="sheet-presets-wrap">
+    <div class="sheet-label">Presets</div>
+    <div class="chips" id="sheet-presets"></div>
+  </div>
+  <div class="sheet-foot">
+    <span id="sheet-meta"></span>
+    <a href="/devices">Device settings</a>
+  </div>
+</dialog>
+
 <script>
-  window.INITIAL_HEALTH = <%- JSON.stringify(
-    devices.reduce(function(acc, d) { acc[d.id] = d.lastSeen; return acc; }, {})
-  ).replace(/</g, '\\u003c') %>;
+  window.DEVICES = <%- JSON.stringify(devices).replace(/</g, '\\u003c') %>;
 </script>
 <script src="/js/main.js"></script>
 <script src="/js/dashboard.js"></script>

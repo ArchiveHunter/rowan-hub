@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Settings' }) %>
+</head>
+<body>
+<%
+  var info = commissioningInfo || {};
+  var code = info.manualPairingCode ? String(info.manualPairingCode) : '';
+  if (/^\d{11}$/.test(code)) code = code.slice(0, 4) + '-' + code.slice(4, 7) + '-' + code.slice(7);
+  var windowOpen = info.windowStatus > 0;
+%>
+<div class="app">
+  <%- include('partials/sidebar') %>
+  <main class="main">
+    <div class="container container--narrow">
+      <%- include('partials/settings-tabs') %>
+
+      <div class="grid-2">
+        <section class="card" aria-labelledby="apps-title" style="flex:1 1 300px">
+          <h2 id="apps-title">Connected home apps</h2>
+          <p class="card-sub">Your devices and scenes appear in these apps as “<%= bridge.name || 'Rowan Hub' %>”.</p>
+          <div style="margin-top:14px">
+            <% if (apps.length) { apps.forEach(function (name) { %>
+            <div class="app-row">
+              <span class="tick"><%- include('partials/icon', { name: 'check', size: 16, stroke: 2.4 }) %></span>
+              <strong><%= name %></strong>
+              <span class="pill pill--success">Connected</span>
+            </div>
+            <% }); } else { %>
+            <div class="app-row"><span class="text-muted">Not paired with any home app yet — follow the steps to add one.</span></div>
+            <% } %>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="pair-title" style="flex:2 1 520px">
+          <div class="pair">
+            <div class="pair-steps">
+              <div>
+                <h2 id="pair-title"><%= apps.length ? 'Add another app' : 'Pair a home app' %></h2>
+                <p class="card-sub">Apple Home, Google Home, Alexa, SmartThings or any Matter app.</p>
+              </div>
+              <ol>
+                <% if (apps.length) { %><li>Click <strong>Open pairing window</strong>.</li><% } %>
+                <li>In your app, choose <strong>Add device</strong> → <strong>Matter</strong>.</li>
+                <li>Scan the code, or type the setup code.</li>
+              </ol>
+              <% if (apps.length) { %>
+              <div>
+                <button class="btn btn-primary" id="btn-open-commissioning"<%= windowOpen ? ' disabled' : '' %>>Open pairing window</button>
+                <div id="pairing-status" style="margin-top:10px;<%= windowOpen ? '' : 'display:none' %>">
+                  <span class="pill pill--success">Pairing window open</span>
+                  <span class="text-muted" style="font-size:13px;margin-left:6px">closes in <strong id="pairing-countdown">15:00</strong></span>
+                </div>
+                <p class="form-hint">Stays open for 15 minutes. Apps you've already paired stay connected.</p>
+              </div>
+              <% } %>
+            </div>
+            <div class="pair-code">
+              <% if (qrDataUrl) { %>
+              <img src="<%= qrDataUrl %>" alt="Matter pairing QR code">
+              <% } else { %>
+              <div class="qr-missing">QR code appears once the bridge has started</div>
+              <% } %>
+              <% if (code) { %>
+              <div><div class="text-muted" style="font-size:13px">Setup code</div><div class="setup-code"><%= code %></div></div>
+              <% } %>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="card" aria-labelledby="appearance-title" style="display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px">
+        <div style="flex:1 1 260px">
+          <h2 id="appearance-title">Appearance</h2>
+          <p class="card-sub" id="theme-hint"></p>
+        </div>
+        <div class="seg" role="group" aria-label="Theme">
+          <button type="button" data-theme-choice="light"><%- include('partials/icon', { name: 'sun', size: 18 }) %>Light</button>
+          <button type="button" data-theme-choice="dark"><%- include('partials/icon', { name: 'moon', size: 18 }) %>Dark</button>
+          <button type="button" data-theme-choice="system"><%- include('partials/icon', { name: 'monitor', size: 18 }) %>System</button>
+        </div>
+      </section>
+
+      <div class="grid-2">
+        <section class="card" aria-labelledby="account-title">
+          <h2 id="account-title">Account</h2>
+          <p class="card-sub">Signed in as <strong><%= locals.user %></strong>. Changing your password signs out your other devices.</p>
+          <div style="margin-top:16px">
+            <div class="field"><label for="acc-user">Username</label><input type="text" id="acc-user" value="<%= locals.user %>" autocomplete="username" autocapitalize="none" maxlength="32"></div>
+            <div class="field"><label for="acc-current">Current password</label><input type="password" id="acc-current" autocomplete="current-password"></div>
+            <div class="field"><label for="acc-new">New password</label><input type="password" id="acc-new" autocomplete="new-password" placeholder="Leave blank to keep it"></div>
+            <button class="btn btn-primary" id="btn-save-account">Save account</button>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="location-title">
+          <h2 id="location-title">Location</h2>
+          <p class="card-sub">Used to work out sunrise and sunset for automations. It never leaves this hub.</p>
+          <div style="margin-top:16px">
+            <div class="form-row">
+              <div class="field" style="margin:0"><label for="loc-lat">Latitude</label><input type="number" id="loc-lat" step="0.0001" value="<%= location.latitude ?? '' %>" placeholder="e.g. 51.5074"></div>
+              <div class="field" style="margin:0"><label for="loc-lon">Longitude</label><input type="number" id="loc-lon" step="0.0001" value="<%= location.longitude ?? '' %>" placeholder="e.g. -0.1278"></div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px">
+              <button class="btn btn-primary" id="btn-save-location">Save location</button>
+              <button class="btn btn-secondary" id="btn-use-location" type="button"><%- include('partials/icon', { name: 'location', size: 18 }) %>Use this device's location</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </main>
+</div>
+<script src="/js/main.js"></script>
+<script src="/js/system.js"></script>
+<script>
+(function () {
+  var hints = {
+    system: 'Matches your device — switches to dark automatically if your phone or computer does.',
+    light: 'Always light, whatever your device is set to.',
+    dark: 'Always dark, whatever your device is set to.',
+  };
+  function sync() {
+    var t = getTheme();
+    document.querySelectorAll('[data-theme-choice]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.themeChoice === t)); });
+    document.getElementById('theme-hint').textContent = hints[t] + ' Saved on this device.';
+  }
+  document.querySelectorAll('[data-theme-choice]').forEach(function (b) {
+    b.addEventListener('click', function () { setTheme(b.dataset.themeChoice); sync(); });
+  });
+  sync();
+
+  var geo = document.getElementById('btn-use-location');
+  geo.addEventListener('click', function () {
+    if (!navigator.geolocation) return showToast('Location isn’t available in this browser', 'error');
+    geo.disabled = true;
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      document.getElementById('loc-lat').value = pos.coords.latitude.toFixed(4);
+      document.getElementById('loc-lon').value = pos.coords.longitude.toFixed(4);
+      geo.disabled = false;
+      showToast('Location filled in — press Save location');
+    }, function () { geo.disabled = false; showToast('Couldn’t get your location', 'error'); });
+  });
+})();
+</script>
+</body>
+</html>

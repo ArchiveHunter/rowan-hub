@@ -1,9 +1,16 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Rowan Hub — Setup</title>
+  <title>Set up · Rowan Hub</title>
+  <script>
+    (function () {
+      var t = 'system';
+      try { t = localStorage.getItem('rowan-hub-theme') || 'system'; } catch (e) {}
+      document.documentElement.dataset.theme = ['light', 'dark', 'system'].indexOf(t) === -1 ? 'system' : t;
+    })();
+  </script>
   <link rel="stylesheet" href="/css/style.css">
   <style>
     .setup-shell {
@@ -194,7 +201,7 @@
   <div class="setup-card">
 
     <div class="setup-logo">
-      <img src="/rowan-hub.png" alt="Rowan Hub">
+      <img src="/icon-192.png" alt="Rowan Hub">
       <span>Rowan Hub</span>
     </div>
 

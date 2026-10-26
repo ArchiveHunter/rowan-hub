@@ -375,15 +375,20 @@ The certificate files must be readable by the `rowanhub` user. Keep them inside 
 
 **Installing as a home screen app (once you have a trusted cert):** open `https://<your-hostname>:3443` in Safari, then **Share → Add to Home Screen**. On Android use Chrome's **Install app**. The plain HTTP address on 3088 never supports PWA install or push.
 
+### Pages
+
+The UI works on desktop (sidebar) and phones (bottom tab bar), in **Light, Dark or System** theme (Settings → General → Appearance; remembered per device).
+
 | Page | What it does |
 |---|---|
-| **Dashboard** | Live device state, power toggles, brightness sliders, colour picker, preset buttons |
-| **Devices** | Add, edit, remove, and enable/disable devices |
-| **Plugins** | Enable/disable plugins, edit global credentials |
-| **Scenes** | Create named scenes; scenes appear as switches on all paired platforms |
-| **Automations** | Time-based and sunrise/sunset automation rules |
-| **Logs** | Streaming log console |
-| **System** | Bridge commissioning info, QR code, pairing window, push notifications, live stats, Restart button |
+| **Home** | Devices grouped by room — tap a tile to switch it on/off, the arrow opens brightness, colour and presets. Shows the next automation, your scenes and which home apps are paired |
+| **Devices** | Add, edit, remove and enable/disable devices. Give each one a **Room** (groups the Home screen) and a **Type** (its icon) |
+| **Scenes** | Create named scenes — each also appears as a switch in your home apps |
+| **Automations** | Time and sunrise/sunset rules, written as plain sentences with their next run time; warns when a rule uses a disabled device |
+| **Settings → General** | Connected home apps, pairing QR + setup code, appearance, account, location |
+| **Settings → Integrations** | Turn plugins on/off, plugin account settings, internal MQTT broker set-up guides |
+| **Settings → System** | Updates, hub stats, push notifications on this device, restart |
+| **Settings → Logs** | Live log console |
 
 ---
 

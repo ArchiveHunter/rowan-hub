@@ -1,211 +1,236 @@
 (function () {
   'use strict';
 
-  var STALE_MS = 30000; // 30s without a heartbeat → stale
-  var health = window.INITIAL_HEALTH || {};
+  // Same threshold the server uses before it reports a device offline
+  var OFFLINE_MS = 2 * 60 * 1000;
 
-  // ── Hex ↔ HSL conversion ─────────────────────────────────────────────────────
+  var devices = {};
+  (window.DEVICES || []).forEach(function (d) { devices[d.id] = d; d.state = d.state || {}; });
+
+  var PLUGIN_LABELS = { wled: 'WLED', tasmota: 'Tasmota', ewelink: 'eWeLink', shelly: 'Shelly', mqtt: 'MQTT', zigbee2mqtt: 'Zigbee2MQTT', daikin: 'Daikin' };
+
+  var SWATCHES = [
+    { label: 'Warm white', hue: 32, saturation: 45, hex: '#FFD9A6' },
+    { label: 'White', hue: 0, saturation: 0, hex: '#FFFFFF' },
+    { label: 'Amber', hue: 38, saturation: 90, hex: '#F5A524' },
+    { label: 'Red', hue: 0, saturation: 90, hex: '#E5484D' },
+    { label: 'Magenta', hue: 294, saturation: 80, hex: '#C23BD4' },
+    { label: 'Blue', hue: 220, saturation: 85, hex: '#2F6FEB' },
+    { label: 'Green', hue: 140, saturation: 75, hex: '#3CB371' },
+  ];
+
+  function has(d, cap) { return d.capabilities.indexOf(cap) !== -1; }
+  function isOffline(d) { return !!d.lastSeen && Date.now() - d.lastSeen > OFFLINE_MS; }
+  function isOn(d) { return has(d, 'power') && !!d.state.on; }
+
+  function statusText(d) {
+    var s = d.state;
+    if (isOffline(d)) return 'Offline';
+    if (has(d, 'power')) {
+      if (!s.on) return 'Off';
+      return typeof s.brightness === 'number' && has(d, 'brightness') ? 'On · ' + s.brightness + '%' : 'On';
+    }
+    if (typeof s.temperature === 'number') return s.temperature + '°C' + (typeof s.humidity === 'number' ? ' · ' + s.humidity + '%' : '');
+    if (typeof s.humidity === 'number') return s.humidity + '% humidity';
+    return '—';
+  }
 
   function hexToHsl(hex) {
-    var r = parseInt(hex.slice(1, 3), 16) / 255;
-    var g = parseInt(hex.slice(3, 5), 16) / 255;
-    var b = parseInt(hex.slice(5, 7), 16) / 255;
-    var max = Math.max(r, g, b), min = Math.min(r, g, b);
-    var h, s, l = (max + min) / 2;
-    if (max === min) { h = s = 0; } else {
-      var d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      switch (max) {
-        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-        case g: h = ((b - r) / d + 2) / 6; break;
-        case b: h = ((r - g) / d + 4) / 6; break;
-      }
+    var r = parseInt(hex.slice(1, 3), 16) / 255, g = parseInt(hex.slice(3, 5), 16) / 255, b = parseInt(hex.slice(5, 7), 16) / 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b), h = 0, s = 0, l = (max + min) / 2;
+    if (max !== min) {
+      var dd = max - min;
+      s = l > 0.5 ? dd / (2 - max - min) : dd / (max + min);
+      if (max === r) h = ((g - b) / dd + (g < b ? 6 : 0)) / 6;
+      else if (max === g) h = ((b - r) / dd + 2) / 6;
+      else h = ((r - g) / dd + 4) / 6;
     }
     return { hue: Math.round(h * 360), saturation: Math.round(s * 100) };
   }
 
-  // ── API call ─────────────────────────────────────────────────────────────────
-
-  function postSet(deviceId, capability, value) {
-    return fetch('/api/devices/' + encodeURIComponent(deviceId) + '/set', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ capability: capability, value: value })
-    }).then(function (res) {
-      if (!res.ok) return res.json().then(function (d) { throw new Error(d.error || 'Error'); });
-      return res.json();
-    }).catch(function (err) { showToast(err.message, 'error'); });
+  function postSet(id, capability, value) {
+    return api('POST', '/api/devices/' + encodeURIComponent(id) + '/set', { capability: capability, value: value })
+      .catch(function (err) { showToast(err.message, 'error'); });
   }
 
-  // ── Card helpers ──────────────────────────────────────────────────────────────
+  // ── Rendering ────────────────────────────────────────────────────────────────
 
-  function getCard(deviceId) {
-    return document.querySelector('.device-card[data-device-id="' + CSS.escape(deviceId) + '"]');
+  function tileEl(id) { return document.querySelector('.tile[data-device-id="' + CSS.escape(id) + '"]'); }
+
+  function renderTile(id) {
+    var d = devices[id], tile = tileEl(id);
+    if (!d || !tile) return;
+    var text = statusText(d);
+    tile.dataset.on = String(isOn(d));
+    tile.dataset.offline = String(isOffline(d));
+    tile.querySelector('.tile-status').textContent = text;
+    var main = tile.querySelector('.tile-main');
+    main.setAttribute('aria-pressed', String(isOn(d)));
+    main.setAttribute('aria-label', d.name + ', ' + text);
   }
 
-  function setCardPower(deviceId, isOn) {
-    var card = getCard(deviceId);
-    if (!card) return;
-    card.dataset.on = isOn ? 'true' : 'false';
-    var btn = card.querySelector('.power-btn');
-    if (!btn) return;
-    btn.classList.toggle('power-btn--on', isOn);
-    btn.setAttribute('aria-pressed', isOn ? 'true' : 'false');
-    btn.title = isOn ? 'Turn off' : 'Turn on';
-  }
-
-  function setCardBrightness(deviceId, value) {
-    var card = getCard(deviceId);
-    if (!card) return;
-    var slider = card.querySelector('.brightness-slider');
-    if (slider) slider.value = value;
-  }
-
-  function setCardColor(deviceId, hue, saturation) {
-    var card = getCard(deviceId);
-    if (!card) return;
-    var swatch = card.querySelector('.color-swatch');
-    if (swatch) swatch.style.background = 'hsl(' + hue + ',' + saturation + '%,50%)';
-  }
-
-  function setCardPreset(deviceId, presetName) {
-    var card = getCard(deviceId);
-    if (!card) return;
-    card.querySelectorAll('.preset-btn').forEach(function (btn) {
-      btn.classList.toggle('preset-btn--active', btn.dataset.preset === presetName);
+  function renderSummary() {
+    var list = Object.keys(devices).map(function (k) { return devices[k]; });
+    var powered = list.filter(function (d) { return has(d, 'power'); });
+    var on = powered.filter(isOn).length;
+    var off = list.filter(isOffline).length;
+    var el = document.getElementById('home-summary');
+    if (el) el.textContent = on + ' of ' + powered.length + ' on · ' + (off ? off + ' offline' : 'all online');
+    document.querySelectorAll('.rooms section').forEach(function (sec) {
+      var n = 0;
+      sec.querySelectorAll('.tile').forEach(function (t) { if (t.dataset.on === 'true') n++; });
+      var c = sec.querySelector('[data-room-count]');
+      if (c) c.textContent = n ? n + ' on' : 'All off';
     });
   }
 
-  // ── Health indicators ─────────────────────────────────────────────────────────
-
-  function applyHealth(deviceId, lastSeen) {
-    health[deviceId] = lastSeen;
-    var now = Date.now();
-    var dot = document.querySelector('.health-dot[data-device-id="' + CSS.escape(deviceId) + '"]');
-    var label = document.querySelector('.health-label[data-device-id="' + CSS.escape(deviceId) + '"]');
-    if (!dot) return;
-
-    var stale = !lastSeen || (now - lastSeen) > STALE_MS;
-    dot.classList.toggle('status-dot--offline', stale);
-    if (label) label.textContent = stale ? 'No response' : 'Online';
+  function update(id, patch) {
+    var d = devices[id];
+    if (!d) return;
+    Object.assign(d.state, patch);
+    renderTile(id);
+    renderSummary();
+    if (sheetId === id) renderSheet();
   }
 
-  function applyAllHealth(healthMap) {
-    var onlineCount = 0;
-    Object.keys(healthMap).forEach(function (id) {
-      applyHealth(id, healthMap[id]);
-      if (healthMap[id] && (Date.now() - healthMap[id]) <= STALE_MS) onlineCount++;
+  // ── Controls sheet ───────────────────────────────────────────────────────────
+
+  var sheet = document.getElementById('device-sheet');
+  var sheetId = null;
+
+  function show(id, visible) { document.getElementById(id).hidden = !visible; }
+
+  function renderSheet() {
+    var d = devices[sheetId];
+    if (!d) return;
+    var s = d.state;
+    document.getElementById('sheet-title').textContent = d.name;
+    document.getElementById('sheet-sub').textContent = [d.room, statusText(d)].filter(Boolean).join(' · ');
+    document.getElementById('sheet-meta').textContent = (PLUGIN_LABELS[d.plugin] || d.plugin) + (isOffline(d) ? ' · not responding' : ' · online');
+
+    show('sheet-power-wrap', has(d, 'power'));
+    var power = document.getElementById('sheet-power');
+    power.setAttribute('aria-pressed', String(!!s.on));
+    document.getElementById('sheet-power-label').textContent = s.on ? 'On' : 'Off';
+
+    show('sheet-bright-wrap', has(d, 'brightness'));
+    var bright = document.getElementById('sheet-bright');
+    if (document.activeElement !== bright) bright.value = typeof s.brightness === 'number' ? s.brightness : 100;
+    document.getElementById('sheet-bright-val').textContent = bright.value + '%';
+
+    show('sheet-colour-wrap', has(d, 'color'));
+    document.querySelectorAll('#sheet-swatches .swatch[data-i]').forEach(function (b) {
+      var sw = SWATCHES[+b.dataset.i];
+      var match = typeof s.hue === 'number' && Math.abs((s.saturation || 0) - sw.saturation) < 12 &&
+        (sw.saturation < 10 || Math.min(Math.abs(s.hue - sw.hue), 360 - Math.abs(s.hue - sw.hue)) < 14);
+      b.setAttribute('aria-pressed', String(!!match));
     });
-    var countEl = document.querySelector('.stat-pill--success');
-    if (countEl) countEl.lastChild.textContent = ' ' + onlineCount + ' online';
+
+    var presets = d.presets || [];
+    show('sheet-presets-wrap', presets.length > 0);
+    var wrap = document.getElementById('sheet-presets');
+    wrap.textContent = '';
+    presets.forEach(function (name) {
+      var b = document.createElement('button');
+      b.className = 'chip';
+      b.textContent = name;
+      b.setAttribute('aria-pressed', String(s.activePresetName === name));
+      b.addEventListener('click', function () { update(sheetId, { activePresetName: name }); postSet(sheetId, 'preset', name); });
+      wrap.appendChild(b);
+    });
   }
 
-  // ── SSE state update ──────────────────────────────────────────────────────────
+  function openSheet(id) {
+    sheetId = id;
+    renderSheet();
+    if (typeof sheet.showModal === 'function') sheet.showModal(); else sheet.setAttribute('open', '');
+  }
 
-  window.handleStateUpdate = function (data) {
-    if (!data || !data.type) return;
-
-    if (data.type === 'health') {
-      applyAllHealth(data.health);
-      return;
-    }
-
-    if (data.type !== 'state' || !data.deviceId) return;
-    var id = data.deviceId;
-    var state = data.state || {};
-
-    // Update lastSeen for this device (state means it's alive)
-    applyHealth(id, Date.now());
-
-    if (typeof state.on === 'boolean') setCardPower(id, state.on);
-    if (typeof state.brightness === 'number') setCardBrightness(id, state.brightness);
-    if (typeof state.hue === 'number' && typeof state.saturation === 'number') {
-      setCardColor(id, state.hue, state.saturation);
-    }
-    if ('activePresetName' in state) setCardPreset(id, state.activePresetName);
-  };
-
-  // ── Wire controls ─────────────────────────────────────────────────────────────
-
-  document.addEventListener('DOMContentLoaded', function () {
-
-    // Initialise health dots from server-side data
-    applyAllHealth(health);
-
-    // Power buttons
-    document.querySelectorAll('.power-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var id = btn.dataset.deviceId;
-        var card = getCard(id);
-        var isOn = card ? card.dataset.on === 'true' : false;
-        setCardPower(id, !isOn);
-        postSet(id, 'power', !isOn);
-      });
+  // Build colour swatches once
+  var swWrap = document.getElementById('sheet-swatches');
+  SWATCHES.forEach(function (sw, i) {
+    var b = document.createElement('button');
+    b.className = 'swatch';
+    b.dataset.i = i;
+    b.setAttribute('aria-label', sw.label);
+    var dot = document.createElement('span');
+    dot.style.background = sw.hex;
+    b.appendChild(dot);
+    b.addEventListener('click', function () {
+      update(sheetId, { hue: sw.hue, saturation: sw.saturation });
+      postSet(sheetId, 'hue', sw.hue).then(function () { postSet(sheetId, 'saturation', sw.saturation); });
     });
+    swWrap.appendChild(b);
+  });
+  var custom = document.createElement('label');
+  custom.className = 'swatch swatch--custom';
+  custom.title = 'Pick any colour';
+  custom.innerHTML = '<span></span><input type="color" aria-label="Pick any colour">';
+  custom.querySelector('input').addEventListener('change', function (e) {
+    var hsl = hexToHsl(e.target.value);
+    update(sheetId, hsl);
+    postSet(sheetId, 'hue', hsl.hue).then(function () { postSet(sheetId, 'saturation', hsl.saturation); });
+  });
+  swWrap.appendChild(custom);
 
-    // Brightness sliders
-    document.querySelectorAll('.brightness-slider').forEach(function (slider) {
-      var debouncedPost = debounce(function (id, val) {
-        postSet(id, 'brightness', val);
-      }, 150);
-      slider.addEventListener('input', function () {
-        debouncedPost(slider.dataset.deviceId, parseInt(slider.value, 10));
-      });
-    });
+  document.getElementById('sheet-close').addEventListener('click', function () { sheet.close(); });
+  sheet.addEventListener('click', function (e) { if (e.target === sheet) sheet.close(); }); // backdrop
+  sheet.addEventListener('close', function () { sheetId = null; });
 
-    // Color swatches
-    document.querySelectorAll('.color-swatch').forEach(function (swatch) {
-      swatch.addEventListener('click', function () {
-        var colorInput = document.querySelector('.color-input[data-device-id="' + CSS.escape(swatch.dataset.deviceId) + '"]');
-        if (colorInput) colorInput.click();
-      });
-      swatch.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); swatch.click(); }
-      });
-    });
-
-    // Color inputs
-    document.querySelectorAll('.color-input').forEach(function (input) {
-      input.addEventListener('change', function () {
-        var id = input.dataset.deviceId;
-        var hsl = hexToHsl(input.value);
-        setCardColor(id, hsl.hue, hsl.saturation);
-        postSet(id, 'hue', hsl.hue);
-        postSet(id, 'saturation', hsl.saturation);
-      });
-    });
-
-    // Preset buttons
-    document.querySelectorAll('.preset-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        setCardPreset(btn.dataset.deviceId, btn.dataset.preset);
-        postSet(btn.dataset.deviceId, 'preset', btn.dataset.preset);
-      });
-    });
-
-    // Scene strip buttons
-    document.querySelectorAll('.scene-strip-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var id = btn.dataset.sceneId;
-        var orig = btn.innerHTML;
-        btn.disabled = true;
-        fetch('/api/scenes/' + id + '/trigger', { method: 'POST' })
-          .then(function (r) { return r.json(); })
-          .then(function (d) { showToast(d.ok ? 'Scene triggered' : (d.error || 'Failed'), d.ok ? 'success' : 'error'); })
-          .catch(function () { showToast('Failed', 'error'); })
-          .finally(function () { btn.disabled = false; btn.innerHTML = orig; });
-      });
-    });
-
-    // SSE
-    var evtSource = new EventSource('/api/events');
-    evtSource.onmessage = function (e) {
-      try { handleStateUpdate(JSON.parse(e.data)); } catch (err) { console.error('SSE parse error:', err); }
-    };
-    evtSource.onerror = function () {
-      console.warn('[Hazel] SSE disconnected — will auto-reconnect');
-    };
-
+  document.getElementById('sheet-power').addEventListener('click', function () {
+    var d = devices[sheetId];
+    var next = !d.state.on;
+    update(sheetId, { on: next });
+    postSet(sheetId, 'power', next);
   });
 
+  var sendBright = debounce(function (id, v) { postSet(id, 'brightness', v); }, 150);
+  document.getElementById('sheet-bright').addEventListener('input', function (e) {
+    var v = parseInt(e.target.value, 10);
+    update(sheetId, { brightness: v });
+    sendBright(sheetId, v);
+  });
+
+  // ── Tiles & scenes ───────────────────────────────────────────────────────────
+
+  document.querySelectorAll('.tile').forEach(function (tile) {
+    var id = tile.dataset.deviceId;
+    tile.querySelector('.tile-main').addEventListener('click', function () {
+      var d = devices[id];
+      if (!d || !has(d, 'power')) return;
+      var next = !d.state.on;
+      update(id, { on: next });
+      postSet(id, 'power', next);
+    });
+    var adj = tile.querySelector('.tile-adjust');
+    if (adj) adj.addEventListener('click', function () { openSheet(id); });
+  });
+
+  document.querySelectorAll('.scene-run').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      btn.disabled = true;
+      api('POST', '/api/scenes/' + encodeURIComponent(btn.dataset.sceneId) + '/trigger')
+        .then(function () { showToast('Scene ran'); })
+        .catch(function (e) { showToast(e.message, 'error'); })
+        .finally(function () { btn.disabled = false; });
+    });
+  });
+
+  // ── Live updates ─────────────────────────────────────────────────────────────
+
+  var evt = new EventSource('/api/events');
+  evt.onmessage = function (e) {
+    var data;
+    try { data = JSON.parse(e.data); } catch (err) { return; }
+    if (data.type === 'health') {
+      Object.keys(data.health || {}).forEach(function (id) {
+        if (devices[id]) { devices[id].lastSeen = data.health[id]; renderTile(id); }
+      });
+      renderSummary();
+      if (sheetId) renderSheet();
+    } else if (data.type === 'state' && devices[data.deviceId]) {
+      // Not proof of life (the stream replays state on connect) — health events carry lastSeen
+      update(data.deviceId, data.state || {});
+    }
+  };
 })();

@@ -74,6 +74,21 @@ class Scheduler extends EventEmitter {
     return base;
   }
 
+  // Next fire time for every enabled automation (looks up to a week ahead) — for the UI.
+  getNextRuns(now = new Date()) {
+    const out = {};
+    for (const auto of automationsManager.getAll()) {
+      if (!auto.enabled) continue;
+      for (let d = 0; d < 8; d++) {
+        const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d, 12);
+        let at;
+        try { at = this._resolveTime(auto.trigger, day, suncalc.getTimes(day, this._lat, this._lon)); } catch { break; }
+        if (at && at > now) { out[auto.id] = at; break; }
+      }
+    }
+    return out;
+  }
+
   async _fire(auto) {
     console.log(`[Scheduler] Firing: "${auto.name}"`);
     for (const action of auto.actions) {

@@ -1,76 +1,94 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-  <%- include('partials/head') %>
+  <%- include('partials/head', { title: 'Integrations' }) %>
 </head>
 <body>
-<div class="app-layout">
-  <%- include('partials/sidebar', { page: 'plugins' }) %>
-  <main class="main-content">
-    <div class="page-container">
+<%
+  var ICONS = { wled: 'strip', tasmota: 'plug', ewelink: 'cloud', shelly: 'switch', mqtt: 'broadcast', zigbee2mqtt: 'mesh', daikin: 'climate' };
+  var BLURB = {
+    wled: 'LED strips running WLED, on your network',
+    tasmota: 'Plugs and switches running Tasmota firmware',
+    ewelink: 'Sonoff devices via your eWeLink account, with local control',
+    shelly: 'Shelly relays, dimmers and rollers',
+    mqtt: 'Any device that talks MQTT',
+    zigbee2mqtt: 'Zigbee devices through a Zigbee2MQTT bridge',
+    daikin: 'Daikin air conditioners on your network',
+  };
+%>
+<style>
+  .plugin-card details { flex-basis: 100%; margin: 0 0 4px 54px; }
+  .plugin-card summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--accent-text); min-height: 32px; display: inline-flex; align-items: center; }
+  .plugin-settings { margin-top: 12px; max-width: 520px; }
+  .plugin-settings--disabled { opacity: .55; }
+  .plugin-settings-footer { display: flex; align-items: center; gap: 12px; }
+  .save-status { font-size: 13px; }
+  @media (max-width: 760px) { .plugin-card details { margin-left: 0; } }
+</style>
+<div class="app">
+  <%- include('partials/sidebar') %>
+  <main class="main">
+    <div class="container container--narrow">
+      <%- include('partials/settings-tabs') %>
 
-      <div class="page-header">
-        <h1>Plugins</h1>
-      </div>
-
-      <div class="plugin-grid">
-        <% plugins.forEach(function(plugin) { %>
-        <div class="plugin-card" data-plugin="<%= plugin.name %>">
-
-          <div class="plugin-card-header">
-            <div class="plugin-icon" style="background: <%= plugin.color %>">
-              <%= plugin.label.charAt(0).toUpperCase() %>
-            </div>
-            <div class="plugin-card-meta">
-              <div class="plugin-card-name"><%= plugin.label %></div>
-              <div class="plugin-card-id text-muted"><%= plugin.name %></div>
-            </div>
-            <span class="device-count-badge"><%= plugin.deviceCount %> device<%= plugin.deviceCount !== 1 ? 's' : '' %></span>
-            <label class="toggle-switch" title="<%= plugin.enabled ? 'Disable' : 'Enable' %> plugin">
-              <input type="checkbox" class="plugin-toggle" data-plugin="<%= plugin.name %>" <%= plugin.enabled ? 'checked' : '' %>>
-              <span class="toggle-slider"></span>
-            </label>
+      <div class="list">
+        <div class="card-head">
+          <div>
+            <h2>Integrations</h2>
+            <p class="card-sub">How Rowan Hub talks to your devices. Turn on the ones you use — changes apply after a restart.</p>
           </div>
-
+        </div>
+        <% plugins.forEach(function (plugin) { %>
+        <div class="row plugin-card<%= plugin.enabled ? '' : ' is-muted' %>" data-plugin="<%= plugin.name %>">
+          <span class="row-icon"><%- include('partials/icon', { name: ICONS[plugin.name] || 'light' }) %></span>
+          <div class="row-main">
+            <div class="row-title"><%= plugin.label %></div>
+            <div class="row-sub"><%= plugin.deviceCount ? plugin.deviceCount + ' device' + (plugin.deviceCount === 1 ? '' : 's') : 'No devices yet' %> · <%= BLURB[plugin.name] || '' %></div>
+          </div>
+          <label class="toggle-switch" title="<%= plugin.enabled ? 'Turn off' : 'Turn on' %> <%= plugin.label %>">
+            <input type="checkbox" class="plugin-toggle" data-plugin="<%= plugin.name %>" aria-label="<%= plugin.label %>" <%= plugin.enabled ? 'checked' : '' %>>
+            <span class="toggle-slider"></span>
+          </label>
           <% if (plugin.globalFields && plugin.globalFields.length > 0) { %>
-          <div class="plugin-settings<%= plugin.enabled ? '' : ' plugin-settings--disabled' %>">
-            <div class="plugin-settings-label">Settings</div>
-            <form class="plugin-settings-form" data-plugin="<%= plugin.name %>">
-              <% plugin.globalFields.forEach(function(field) { %>
-              <div class="form-group">
-                <label for="<%= plugin.name %>-<%= field.name %>"><%= field.label %><% if (field.required) { %> <span class="required">*</span><% } %></label>
-                <% if (field.type === 'select') { %>
-                <select id="<%= plugin.name %>-<%= field.name %>" name="<%= field.name %>">
-                  <% (field.options || []).forEach(function(opt) { %>
-                  <option value="<%= opt %>" <%= plugin.globalConfig && plugin.globalConfig[field.name] === opt ? 'selected' : '' %>><%= opt.toUpperCase() %></option>
-                  <% }); %>
-                </select>
-                <% } else { %>
-                <input
-                  type="<%= field.type === 'password' ? 'password' : 'text' %>"
-                  id="<%= plugin.name %>-<%= field.name %>"
-                  name="<%= field.name %>"
-                  value="<%= plugin.globalConfig && plugin.globalConfig[field.name] ? plugin.globalConfig[field.name] : '' %>"
-                  <% if (field.placeholder) { %>placeholder="<%= field.placeholder %>"<% } %>
-                  <% if (field.required) { %>required<% } %>
-                >
-                <% } %>
-              </div>
-              <% }); %>
-              <div class="plugin-settings-footer">
-                <button type="submit" class="btn btn-primary btn--sm">Save Settings</button>
-                <span class="save-status" aria-live="polite"></span>
-              </div>
-            </form>
-          </div>
-          <% } else { %>
-          <div class="plugin-no-settings text-muted">
-            No global settings required.
-          </div>
+          <details<%= plugin.enabled && !plugin.globalConfig ? ' open' : '' %>>
+            <summary>Account &amp; connection settings</summary>
+            <div class="plugin-settings<%= plugin.enabled ? '' : ' plugin-settings--disabled' %>">
+              <form class="plugin-settings-form" data-plugin="<%= plugin.name %>">
+                <% plugin.globalFields.forEach(function (field) { %>
+                <div class="form-group">
+                  <label for="<%= plugin.name %>-<%= field.name %>"><%= field.label %><% if (field.required) { %> <span class="required">*</span><% } %></label>
+                  <% if (field.type === 'select') { %>
+                  <select id="<%= plugin.name %>-<%= field.name %>" name="<%= field.name %>">
+                    <% (field.options || []).forEach(function (opt) { %>
+                    <option value="<%= opt %>" <%= plugin.globalConfig && plugin.globalConfig[field.name] === opt ? 'selected' : '' %>><%= opt.toUpperCase() %></option>
+                    <% }); %>
+                  </select>
+                  <% } else { %>
+                  <input type="<%= field.type === 'password' ? 'password' : 'text' %>" id="<%= plugin.name %>-<%= field.name %>" name="<%= field.name %>"
+                    value="<%= plugin.globalConfig && plugin.globalConfig[field.name] ? plugin.globalConfig[field.name] : '' %>"
+                    <% if (field.placeholder) { %>placeholder="<%= field.placeholder %>"<% } %> <% if (field.required) { %>required<% } %>
+                    <% if (field.type === 'password') { %>autocomplete="new-password"<% } %>>
+                  <% } %>
+                </div>
+                <% }); %>
+                <div class="plugin-settings-footer">
+                  <button type="submit" class="btn btn-primary btn-sm">Save settings</button>
+                  <span class="save-status" aria-live="polite"></span>
+                </div>
+              </form>
+            </div>
+          </details>
           <% } %>
-
         </div>
         <% }); %>
+        <div class="row">
+          <span class="row-icon"><%- include('partials/icon', { name: 'server' }) %></span>
+          <div class="row-main">
+            <div class="row-title">Internal MQTT broker <span class="pill<%= brokerRunning ? ' pill--success' : '' %>"><%= brokerRunning ? 'Running' : 'Stopped' %></span></div>
+            <div class="row-sub">Lets Tasmota and Shelly devices report changes instantly instead of being polled</div>
+          </div>
+          <a class="btn btn-secondary btn-sm" href="/mqtt"><%= brokerRunning ? 'Manage' : 'Set up' %></a>
+        </div>
       </div>
 
     </div>
@@ -78,47 +96,42 @@
 </div>
 <script src="/js/main.js"></script>
 <script>
-(function() {
-  document.querySelectorAll('.plugin-toggle').forEach(function(toggle) {
-    toggle.addEventListener('change', async function() {
-      const pluginName = toggle.dataset.plugin;
-      const enabled = toggle.checked;
-      const card = toggle.closest('.plugin-card');
-      const settingsEl = card.querySelector('.plugin-settings');
+(function () {
+  document.querySelectorAll('.plugin-toggle').forEach(function (toggle) {
+    toggle.addEventListener('change', async function () {
+      var pluginName = toggle.dataset.plugin;
+      var enabled = toggle.checked;
+      var card = toggle.closest('.plugin-card');
+      var settingsEl = card.querySelector('.plugin-settings');
       try {
-        await api('PUT', '/api/plugins/' + pluginName + '/toggle', { enabled });
-        if (settingsEl) {
-          settingsEl.classList.toggle('plugin-settings--disabled', !enabled);
-        }
-        toggle.closest('label').title = enabled ? 'Disable plugin' : 'Enable plugin';
-        showToast((enabled ? 'Enabled' : 'Disabled') + ' ' + pluginName + '. Restart Hazel to apply.', 'success');
-      } catch(err) {
+        await api('PUT', '/api/plugins/' + pluginName + '/toggle', { enabled: enabled });
+        card.classList.toggle('is-muted', !enabled);
+        if (settingsEl) settingsEl.classList.toggle('plugin-settings--disabled', !enabled);
+        showToast((enabled ? 'Turned on ' : 'Turned off ') + pluginName + ' — restart Rowan Hub to apply');
+      } catch (err) {
         toggle.checked = !enabled;
         showToast(err.message, 'error');
       }
     });
   });
 
-  document.querySelectorAll('.plugin-settings-form').forEach(function(form) {
-    form.addEventListener('submit', async function(e) {
+  document.querySelectorAll('.plugin-settings-form').forEach(function (form) {
+    form.addEventListener('submit', async function (e) {
       e.preventDefault();
-      const pluginName = form.dataset.plugin;
-      const statusEl = form.querySelector('.save-status');
-      const btn = form.querySelector('button[type="submit"]');
-      const data = {};
-      new FormData(form).forEach(function(v, k) { data[k] = v; });
+      var statusEl = form.querySelector('.save-status');
+      var btn = form.querySelector('button[type="submit"]');
+      var data = {};
+      new FormData(form).forEach(function (v, k) { data[k] = v; });
       btn.disabled = true;
       statusEl.textContent = 'Saving…';
       statusEl.style.color = 'var(--text-muted)';
       try {
-        await api('PUT', '/api/plugins/' + pluginName, data);
-        statusEl.textContent = 'Saved. Restart to apply.';
-        statusEl.style.color = 'var(--success)';
-        showToast('Plugin settings saved. Restart Hazel to apply.', 'success');
-      } catch(err) {
-        statusEl.textContent = 'Error: ' + err.message;
+        await api('PUT', '/api/plugins/' + form.dataset.plugin, data);
+        statusEl.textContent = 'Saved — restart to apply';
+        statusEl.style.color = 'var(--success-text)';
+      } catch (err) {
+        statusEl.textContent = err.message;
         statusEl.style.color = 'var(--danger)';
-        showToast(err.message, 'error');
       } finally {
         btn.disabled = false;
       }
