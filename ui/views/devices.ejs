@@ -7,9 +7,9 @@
 <%
   var LABELS = {};
   Object.keys(schemas).forEach(function (k) { LABELS[k] = schemas[k].label || k; });
-  function details(d) {
+  function details(d, grouped) {
     var bits = [];
-    if (d.room) bits.push(d.room);
+    if (d.room && !grouped) bits.push(d.room); // room is already the section heading when grouped
     bits.push(LABELS[d.plugin] || d.plugin);
     if (d.host) bits.push(d.host);
     if (d.device_id) bits.push('ID ' + d.device_id);
@@ -40,8 +40,23 @@
         <button class="btn btn-primary" id="btn-add-device-empty">Add your first device</button>
       </div>
       <% } else { %>
-      <div class="list">
-        <% devices.forEach(function (device) {
+      <%
+        var groups = [], byRoom = {};
+        devices.forEach(function (d) {
+          var r = (d.room || '').trim();
+          if (!byRoom[r]) { byRoom[r] = []; groups.push(r); }
+          byRoom[r].push(d);
+        });
+        groups.sort(function (a, b) { return (a === '') - (b === ''); });
+        var anyRoom = groups.some(function (r) { return r !== ''; });
+      %>
+      <% groups.forEach(function (room) { var list = byRoom[room]; %>
+      <section aria-label="<%= room || 'No room' %>">
+        <% if (anyRoom) { %>
+        <div class="section-head"><h2><%= room || 'No room' %></h2><span class="count"><%= list.length %> device<%= list.length === 1 ? '' : 's' %></span></div>
+        <% } %>
+        <div class="list">
+        <% list.forEach(function (device) {
              var disabled = device.enabled === false;
              var live = liveIds.indexOf(device.id) !== -1; %>
         <div class="row<%= disabled ? ' is-muted' : '' %>" data-device-id="<%= device.id %>">
@@ -52,7 +67,7 @@
               <% if (disabled) { %><span class="pill">Disabled</span>
               <% } else if (!live) { %><span class="pill pill--warn">Restart to activate</span><% } %>
             </div>
-            <div class="row-sub"><%= details(device) %></div>
+            <div class="row-sub"><%= details(device, anyRoom) %></div>
           </div>
           <div class="row-actions">
             <button class="btn btn-secondary btn-sm btn-edit" data-device-id="<%= device.id %>">
@@ -67,7 +82,12 @@
           </div>
         </div>
         <% }); %>
-      </div>
+        </div>
+      </section>
+      <% }); %>
+      <% if (!anyRoom) { %>
+      <p class="text-muted" style="font-size:14px">Tip: give each device a <strong>Room</strong> (Edit) to group them here and on the Home screen.</p>
+      <% } %>
       <% } %>
 
     </div>
@@ -133,6 +153,12 @@
     </div>
   </div>
 </div>
+
+<datalist id="room-options">
+  <% devices.map(function (d) { return (d.room || '').trim(); }).filter(function (r, i, a) { return r && a.indexOf(r) === i; }).forEach(function (r) { %>
+  <option value="<%= r %>"></option>
+  <% }); %>
+</datalist>
 
 <script>
   window.DEVICES_DATA = <%- JSON.stringify(devices).replace(/</g, '\\u003c') %>;

@@ -177,6 +177,7 @@
       }
       input.id = containerId + '-' + field.name;
       input.name = field.name;
+      if (field.name === 'room') { input.setAttribute('list', 'room-options'); input.autocomplete = 'off'; }
       if (field.required) input.required = true;
       if (existingData && existingData[field.name] !== undefined && existingData[field.name] !== null) {
         input.value = existingData[field.name];

@@ -3,6 +3,7 @@
 const { Endpoint } = require('@matter/main');
 const { BridgedDeviceBasicInformationServer } = require('@matter/main/behaviors/bridged-device-basic-information');
 const { ColorControlServer } = require('@matter/main/behaviors/color-control');
+const { FixedLabelServer } = require('@matter/main/behaviors/fixed-label');
 const { OnOffPlugInUnitDevice } = require('@matter/main/devices/on-off-plug-in-unit');
 const { DimmableLightDevice } = require('@matter/main/devices/dimmable-light');
 const { ExtendedColorLightDevice } = require('@matter/main/devices/extended-color-light');
@@ -18,6 +19,17 @@ const HsColorLightDevice = ExtendedColorLightDevice.with(
 );
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Matter's way for a bridge to say which devices share a room: a Fixed Label "room" entry
+// on each bridged endpoint (core spec 9.8). Home apps decide whether to use it as a hint.
+// Label values are limited to 16 bytes.
+function roomLabel(config) {
+  const room = String(config.room || '').trim();
+  if (!room) return { labelList: [] };
+  let value = room;
+  while (Buffer.byteLength(value) > 16) value = value.slice(0, -1);
+  return { labelList: [{ label: 'room', value }] };
+}
 
 function bridgeInfo(config, label) {
   const name = label || config.name;
@@ -81,6 +93,7 @@ function buildLightOrSwitchEndpoint(deviceConfig, driver, caps) {
   // (0 = HueSaturation, 2 = ColorTemperatureMireds)
   const endpointOptions = {
     id: deviceConfig.id,
+    fixedLabel: roomLabel(deviceConfig),
     bridgedDeviceBasicInformation: bridgeInfo(deviceConfig),
   };
   const ctInit = hasColor || hasColorTemp ? {
@@ -94,7 +107,7 @@ function buildLightOrSwitchEndpoint(deviceConfig, driver, caps) {
     endpointOptions.colorControl = { colorMode: 2, ...ctInit };
   }
 
-  const endpoint = new Endpoint(DeviceBase.with(BridgedDeviceBasicInformationServer), endpointOptions);
+  const endpoint = new Endpoint(DeviceBase.with(BridgedDeviceBasicInformationServer, FixedLabelServer), endpointOptions);
 
   let syncing = false;
 
@@ -178,9 +191,10 @@ function buildSensorEndpoints(deviceConfig, driver, caps) {
 
   if (caps.includes('temperature')) {
     const ep = new Endpoint(
-      TemperatureSensorDevice.with(BridgedDeviceBasicInformationServer),
+      TemperatureSensorDevice.with(BridgedDeviceBasicInformationServer, FixedLabelServer),
       {
         id: `${deviceConfig.id}-temp`,
+        fixedLabel: roomLabel(deviceConfig),
         bridgedDeviceBasicInformation: bridgeInfo(deviceConfig, `${deviceConfig.name} Temperature`),
         temperatureMeasurement: { measuredValue: 2000 }, // default 20°C
       }
@@ -196,9 +210,10 @@ function buildSensorEndpoints(deviceConfig, driver, caps) {
 
   if (caps.includes('humidity')) {
     const ep = new Endpoint(
-      HumiditySensorDevice.with(BridgedDeviceBasicInformationServer),
+      HumiditySensorDevice.with(BridgedDeviceBasicInformationServer, FixedLabelServer),
       {
         id: `${deviceConfig.id}-humidity`,
+        fixedLabel: roomLabel(deviceConfig),
         bridgedDeviceBasicInformation: bridgeInfo(deviceConfig, `${deviceConfig.name} Humidity`),
         relativeHumidityMeasurement: { measuredValue: 5000 }, // default 50%
       }
@@ -214,9 +229,10 @@ function buildSensorEndpoints(deviceConfig, driver, caps) {
 
   if (caps.includes('contact')) {
     const ep = new Endpoint(
-      ContactSensorDevice.with(BridgedDeviceBasicInformationServer),
+      ContactSensorDevice.with(BridgedDeviceBasicInformationServer, FixedLabelServer),
       {
         id: `${deviceConfig.id}-contact`,
+        fixedLabel: roomLabel(deviceConfig),
         bridgedDeviceBasicInformation: bridgeInfo(deviceConfig, `${deviceConfig.name} Contact`),
         booleanState: { stateValue: true }, // true = closed/normal
       }
@@ -232,9 +248,10 @@ function buildSensorEndpoints(deviceConfig, driver, caps) {
 
   if (caps.includes('motion')) {
     const ep = new Endpoint(
-      OccupancySensorDevice.with(BridgedDeviceBasicInformationServer),
+      OccupancySensorDevice.with(BridgedDeviceBasicInformationServer, FixedLabelServer),
       {
         id: `${deviceConfig.id}-motion`,
+        fixedLabel: roomLabel(deviceConfig),
         bridgedDeviceBasicInformation: bridgeInfo(deviceConfig, `${deviceConfig.name} Motion`),
         occupancySensing: { occupancy: { occupied: false } },
       }
@@ -258,9 +275,10 @@ function buildThermostatEndpoint(deviceConfig, driver) {
   const name = deviceConfig.name;
 
   const endpoint = new Endpoint(
-    OnOffPlugInUnitDevice.with(BridgedDeviceBasicInformationServer),
+    OnOffPlugInUnitDevice.with(BridgedDeviceBasicInformationServer, FixedLabelServer),
     {
       id: deviceConfig.id,
+      fixedLabel: roomLabel(deviceConfig),
       bridgedDeviceBasicInformation: bridgeInfo(deviceConfig),
     }
   );
@@ -296,9 +314,10 @@ function buildPresetEndpoint(deviceConfig, driver, presetName) {
   const label = `${deviceConfig.name} — ${presetName}`;
 
   const endpoint = new Endpoint(
-    OnOffPlugInUnitDevice.with(BridgedDeviceBasicInformationServer),
+    OnOffPlugInUnitDevice.with(BridgedDeviceBasicInformationServer, FixedLabelServer),
     {
       id,
+      fixedLabel: roomLabel(deviceConfig),
       bridgedDeviceBasicInformation: {
         nodeLabel: label,
         productName: label,

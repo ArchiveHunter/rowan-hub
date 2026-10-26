@@ -85,4 +85,62 @@ function createClient() {
   return client;
 }
 
-module.exports = { isAvailable, isRunning, start, stop, createClient, getCredentials };
+// ── Device connection tracking ───────────────────────────────────────────────
+// Since v1.2.0 the broker needs a password, so devices set up against the old anonymous
+// broker silently stop reporting. We watch for live (non-retained) messages per device and
+// nudge devices to answer, so the UI can say which ones still need the username/password.
+
+const _seen = new Map(); // 'tasmota:<topic>' | 'shelly:<mqtt_id>' → last message time
+let _tracker = null;
+let _trackingSince = null;
+
+// Devices that talk to the internal broker (same rules the plugins use to pick MQTT mode)
+function mqttDevices(devices) {
+  return (devices || []).filter(d => d.enabled !== false && (
+    d.plugin === 'tasmota' ||
+    (d.plugin === 'shelly' && d.mqtt_id && String(d.generation) !== '2')
+  )).map(d => ({
+    id: d.id,
+    name: d.name,
+    plugin: d.plugin,
+    key: d.plugin === 'tasmota' ? `tasmota:${d.mqtt_topic || d.id}` : `shelly:${d.mqtt_id}`,
+  }));
+}
+
+function trackActivity(client) {
+  _tracker = client;
+  _trackingSince = Date.now();
+  client.subscribe(['stat/#', 'tele/#', 'shellies/#'], () => {});
+  client.on('message', (topic, _payload, packet) => {
+    if (packet && packet.retain) return; // retained = could be from before the password change
+    const [root, name] = topic.split('/');
+    if (!name) return;
+    if (root === 'shellies') _seen.set(`shelly:${name}`, Date.now());
+    else if (root === 'stat' || root === 'tele') _seen.set(`tasmota:${name}`, Date.now());
+  });
+}
+
+// Ask each device to report — Tasmota answers an empty POWER command, Shelly Gen1 "update"
+function probe(devices) {
+  if (!_tracker) return;
+  for (const d of mqttDevices(devices)) {
+    const [, name] = d.key.split(/:(.*)/);
+    if (d.plugin === 'tasmota') _tracker.publish(`cmnd/${name}/POWER`, '');
+    else _tracker.publish(`shellies/${name}/command`, 'update');
+  }
+}
+
+// Status per MQTT device. `settled` = tracking long enough that silence means "not connected".
+function connectionStatus(devices) {
+  const settled = !!_trackingSince && Date.now() - _trackingSince > 60 * 1000;
+  return {
+    tracking: !!_tracker,
+    settled,
+    devices: mqttDevices(devices).map(d => {
+      const lastSeen = _seen.get(d.key) || null;
+      return { ...d, lastSeen, connected: !!lastSeen };
+    }),
+  };
+}
+
+module.exports = { isAvailable, isRunning, start, stop, createClient, getCredentials, trackActivity, probe, connectionStatus };

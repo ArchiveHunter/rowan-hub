@@ -68,6 +68,24 @@
         <% } %>
       </div>
 
+      <% if (brokerEnabled && brokerRunning && (tasmotaDevices.length || shellyDevices.length)) { %>
+      <!-- Which devices actually reach the broker (helps after the v1.2.0 password change) -->
+      <div class="card" id="mqtt-conn">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <span>Device connections</span>
+          <button class="btn btn-secondary btn-sm" id="conn-check" type="button">Check again</button>
+        </div>
+        <div class="card-body">
+          <p id="conn-summary" style="font-weight:600">Checking which devices can reach the broker…</p>
+          <p class="mqtt-hint" id="conn-help" style="display:none;margin-top:6px">
+            A device that isn't connected is usually still set up for the old broker, which didn't need a password.
+            Enter the <strong>User</strong> and <strong>Password</strong> shown above on the device — Tasmota: <strong>Configuration → Configure MQTT</strong>; Shelly: <strong>Settings → MQTT</strong> — then press <strong>Check again</strong>.
+          </p>
+          <div id="conn-list" style="margin-top:12px"></div>
+        </div>
+      </div>
+      <% } %>
+
       <% if (brokerAvailable && (tasmotaEnabled || shellyEnabled)) { %>
       <!-- Setup guides -->
       <div class="section-header" style="margin-bottom:16px;">
@@ -107,7 +125,7 @@
           <% for (const d of tasmotaDevices) { %>
           <div class="card device-mqtt-card">
             <div class="card-body">
-              <div class="device-mqtt-name"><%= d.name %></div>
+              <div class="device-mqtt-name"><%= d.name %> <span class="pill" data-conn="<%= d.id %>" hidden></span></div>
               <div class="device-mqtt-id">Device ID: <code class="inline-code"><%= d.id %></code></div>
               <div class="mqtt-topic-row">
                 <div class="mqtt-topic-block">
@@ -165,7 +183,7 @@
           <% for (const d of shellyDevices) { %>
           <div class="card device-mqtt-card">
             <div class="card-body">
-              <div class="device-mqtt-name"><%= d.name %></div>
+              <div class="device-mqtt-name"><%= d.name %> <span class="pill" data-conn="<%= d.id %>" hidden></span></div>
               <% if (d.mqtt_id) { %>
               <div class="mqtt-topic-row">
                 <div class="mqtt-topic-block">
@@ -226,6 +244,52 @@ async function toggleBroker(enable) {
     btn.disabled = false;
     btn.textContent = enable ? 'Start broker' : 'Stop broker';
   }
+}
+
+// ── Device connections ──
+async function checkConnections(nudge) {
+  const box = document.getElementById('mqtt-conn');
+  if (!box) return;
+  const btn = document.getElementById('conn-check');
+  btn.disabled = true;
+  try {
+    if (nudge) { await fetch('/api/mqtt/probe', { method: 'POST' }); await new Promise(r => setTimeout(r, 2500)); }
+    const data = await (await fetch('/api/mqtt/devices')).json();
+    const list = document.getElementById('conn-list');
+    list.textContent = '';
+    if (!data.tracking) {
+      document.getElementById('conn-summary').textContent = 'Restart Rowan Hub to start checking device connections.';
+      return;
+    }
+    let missing = 0;
+    data.devices.forEach(d => {
+      const state = d.connected ? 'ok' : (data.settled ? 'missing' : 'checking');
+      if (state === 'missing') missing++;
+      const label = { ok: 'Connected', missing: 'Not connected', checking: 'Checking…' }[state];
+      const cls = { ok: 'pill pill--success', missing: 'pill pill--warn', checking: 'pill' }[state];
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;border-top:1px solid var(--divider)';
+      const name = document.createElement('span'); name.textContent = d.name;
+      const pill = document.createElement('span'); pill.className = cls; pill.textContent = label;
+      row.append(name, pill); list.appendChild(row);
+      const tag = document.querySelector('[data-conn="' + CSS.escape(d.id) + '"]');
+      if (tag) { tag.hidden = false; tag.className = cls; tag.textContent = label; }
+    });
+    const total = data.devices.length;
+    document.getElementById('conn-summary').textContent = !data.settled && missing === 0 && data.devices.some(d => !d.connected)
+      ? 'Still checking — devices have a minute to answer after Rowan Hub starts.'
+      : missing ? missing + ' of ' + total + ' device' + (total === 1 ? '' : 's') + ' not connected'
+      : 'All ' + total + ' device' + (total === 1 ? ' is' : 's are') + ' connected';
+    document.getElementById('conn-help').style.display = missing ? '' : 'none';
+  } catch (e) {
+    document.getElementById('conn-summary').textContent = 'Couldn’t check connections: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+if (document.getElementById('mqtt-conn')) {
+  document.getElementById('conn-check').addEventListener('click', () => checkConnections(true));
+  checkConnections(true);
 }
 
 function copyAddr() { copy('<%= localIp %>:1883'); }

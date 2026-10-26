@@ -283,8 +283,10 @@ async function startUiServer(registry, config, scheduler, bridge) {
         describe.actionsText(byId[nextId].actions.filter(a => !disabled.includes(a.device)), id => names[id] || id),
     } : null;
     const { apps, commissioningInfo } = await pairingInfo();
+    const mqtt = mqttBroker.connectionStatus(configManager.load().devices);
+    const mqttMissing = mqtt.tracking && mqtt.settled ? mqtt.devices.filter(d => !d.connected).map(d => d.name) : [];
     res.render('dashboard', {
-      devices, scenes: scenesManager.getAll(), comingUp, pairedApps: apps,
+      devices, scenes: scenesManager.getAll(), comingUp, pairedApps: apps, mqttMissing,
       commissioned: commissioningInfo?.commissioned ?? false, page: 'home',
     });
   });
@@ -477,6 +479,16 @@ async function startUiServer(registry, config, scheduler, bridge) {
       running:   await mqttBroker.isRunning(),
       enabled:   configManager.getMqttBrokerEnabled(),
     });
+  });
+
+  // Which Tasmota / Shelly devices are reaching the (password-protected) broker
+  app.get('/api/mqtt/devices', (req, res) => {
+    res.json(mqttBroker.connectionStatus(configManager.load().devices));
+  });
+
+  app.post('/api/mqtt/probe', (req, res) => {
+    mqttBroker.probe(configManager.load().devices);
+    res.json({ ok: true });
   });
 
   app.put('/api/mqtt/broker', async (req, res) => {

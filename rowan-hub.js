@@ -42,6 +42,9 @@ async function main() {
         setTimeout(() => reject(new Error('MQTT connect timeout')), 8000);
       });
       console.log('[Rowan Hub] MQTT broker running — MQTT mode active');
+      // Watch which devices actually reach the broker, and nudge them to report
+      mqttBroker.trackActivity(mqttClient);
+      setTimeout(() => mqttBroker.probe(config.devices), 5000);
     } catch (e) {
       console.warn(`[Rowan Hub] MQTT broker unavailable: ${e.message} — falling back to polling`);
       if (mqttClient) { mqttClient.end(true); mqttClient = null; }

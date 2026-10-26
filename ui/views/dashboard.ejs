@@ -53,6 +53,14 @@
         <% } %>
       </header>
 
+      <% if (mqttMissing.length) { %>
+      <a class="alert alert-warn" href="/mqtt" style="text-decoration:none">
+        <%- include('partials/icon', { name: 'warn', size: 20, stroke: 2 }) %>
+        <span><strong><%= mqttMissing.length === 1 ? describe.joinNames(mqttMissing) + " isn't" : describe.joinNames(mqttMissing) + " aren't" %> connected to the MQTT broker.</strong>
+        <%= mqttMissing.length === 1 ? 'It needs' : 'They need' %> the broker's username and password — <span style="text-decoration:underline">show me how</span>.</span>
+      </a>
+      <% } %>
+
       <% if (comingUp || scenes.length) { %>
       <div class="home-strip">
         <% if (comingUp) { %>

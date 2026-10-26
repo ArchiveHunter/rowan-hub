@@ -99,7 +99,8 @@ const PLUGIN_SCHEMAS = {
 
 // Every device can have a room (groups the Home screen) and a type (its icon)
 const COMMON_FIELDS = [
-  { name: 'room', label: 'Room', type: 'text', placeholder: 'e.g. Living Room — groups devices on the Home screen' },
+  { name: 'room', label: 'Room', type: 'text', placeholder: 'e.g. Living Room',
+    hint: 'Groups devices in Rowan Hub and is shared with your home apps as a room hint (first 16 characters).' },
   { name: 'kind', label: 'Type', type: 'select', options: ['', 'light', 'plug', 'strip', 'switch', 'climate', 'sensor', 'blind'],
     optionLabels: ['Automatic', 'Light', 'Plug / socket', 'LED strip', 'Switch', 'Heating / cooling', 'Sensor', 'Blind'] },
 ];
