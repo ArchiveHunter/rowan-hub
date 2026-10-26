@@ -320,27 +320,60 @@ Rowan Hub serves two endpoints:
 | `http://{host}:3088` | Local network access |
 | `https://{host}:3443` | HTTPS — required for push notifications and PWA install on phones |
 
-A self-signed TLS certificate is generated automatically on first start and saved alongside the project (gitignored). Your browser will show a security warning the first time — this is expected for a self-signed cert on a local server.
+### HTTPS, certificate warnings & push notifications
 
-**To trust the certificate on iOS (recommended for PWA install):**
-1. Open `https://{host}:3443` in Safari
-2. Tap **Show Details → visit this website** to bypass the warning
-3. Go to **Settings → General → VPN & Device Management** → find the Rowan Hub certificate → tap **Trust**
-4. Refresh — the warning will be gone permanently for this device
+On first start Rowan Hub generates a **self-signed certificate** for port 3443. That keeps traffic encrypted, but browsers don't trust it:
 
-**To install as a home screen app on iPhone/iPad:**
-- Open `https://{host}:3443` in Safari → **Share → Add to Home Screen**
-- Must be HTTPS — the HTTP address does not support PWA install or push notifications
+- Every browser shows a warning (*"Your connection is not private"*, `NET::ERR_CERT_AUTHORITY_INVALID`). On a desktop you can click through it.
+- **iPhone / iPad:** push notifications and *Add to Home Screen* (PWA) don't work with an untrusted certificate. The manifest and icons fail silently.
+- **Android / Chrome:** the service worker refuses to register, so there's no push and no install.
 
-If you have a proper domain certificate (e.g. from Let's Encrypt), you can point Rowan Hub at it instead of using the self-signed cert:
+To get rid of the warning and make push notifications work, give Rowan Hub a **trusted certificate**. You have two options.
+
+> `hub.rowanhub.co.uk` is the maintainer's own address, and it only works because their copy has its own certificate. You need your own hostname and certificate, using either option below.
+
+**Option 1: Tailscale (easiest if you already use it).** Enable HTTPS certificates for your tailnet in the Tailscale admin console, then:
+
+```bash
+cd /opt/rowan-hub
+sudo tailscale cert --cert-file ts-cert.pem --key-file ts-key.pem <machine>.<tailnet>.ts.net
+sudo chown rowanhub:rowanhub ts-*.pem && sudo chmod 600 ts-key.pem
+```
+
+Open `https://<machine>.<tailnet>.ts.net:3443` from any device on your tailnet. Certificates last 90 days, so re-run the command from a monthly cron job, followed by `pm2 restart rowan-hub`.
+
+**Option 2: your own domain + Let's Encrypt (DNS challenge).**
+
+1. Create a DNS A record such as `hub.example.com` pointing at Rowan Hub's **LAN IP** (e.g. `192.168.1.50`). It only resolves to something useful inside your home, which is fine.
+2. Issue the certificate with a **DNS-01** challenge. The HTTP challenge can't work because Let's Encrypt can't reach your LAN. With [acme.sh](https://github.com/acmesh-official/acme.sh) and your DNS provider's API:
+
+   ```bash
+   acme.sh --issue --dns dns_ovh -d hub.example.com        # dns_cf, dns_gd, … for other providers
+   acme.sh --install-cert -d hub.example.com \
+     --fullchain-file /opt/rowan-hub/le-fullchain.pem \
+     --key-file       /opt/rowan-hub/le-key.pem \
+     --reloadcmd "chown rowanhub:rowanhub /opt/rowan-hub/le-*.pem && chmod 600 /opt/rowan-hub/le-key.pem && pm2 restart rowan-hub"
+   ```
+
+3. Some routers block DNS answers that point at private IPs ("DNS rebind protection"). If `hub.example.com` doesn't resolve at home, whitelist it in your router or Pi-hole.
+
+**For either option**, point Rowan Hub at the files and allow the hostname, then `pm2 restart rowan-hub`:
 
 ```yaml
 ui:
   port: 3088
   httpsPort: 3443
-  certFile: /etc/letsencrypt/live/yourdomain/fullchain.pem
-  keyFile:  /etc/letsencrypt/live/yourdomain/privkey.pem
+  certFile: /opt/rowan-hub/le-fullchain.pem   # or ts-cert.pem
+  keyFile:  /opt/rowan-hub/le-key.pem         # or ts-key.pem
+  allowedHosts:
+    - hub.example.com                         # or <machine>.<tailnet>.ts.net
 ```
+
+The certificate files must be readable by the `rowanhub` user. Keep them inside `/opt/rowan-hub`, not under `/root`.
+
+**Option 3: stay self-signed.** Everything except push notifications and PWA install works in a desktop browser once you accept the warning.
+
+**Installing as a home screen app (once you have a trusted cert):** open `https://<your-hostname>:3443` in Safari, then **Share → Add to Home Screen**. On Android use Chrome's **Install app**. The plain HTTP address on 3088 never supports PWA install or push.
 
 | Page | What it does |
 |---|---|
