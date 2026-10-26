@@ -16,3 +16,4 @@ rowan-hub-key.pem
 letsencrypt-cert.pem
 letsencrypt-key.pem
 letsencrypt-fullchain.pem
+.npm-cache/

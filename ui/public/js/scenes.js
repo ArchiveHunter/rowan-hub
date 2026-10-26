@@ -207,7 +207,7 @@
     var method = id ? 'PUT' : 'POST';
     var url = id ? '/api/scenes/' + id : '/api/scenes';
     fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, actions }) })
-      .then(function (r) { return r.json(); })
+      .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Request failed'); }); })
       .then(function () { location.reload(); })
       .catch(function (e) { alert('Save failed: ' + e.message); });
   });

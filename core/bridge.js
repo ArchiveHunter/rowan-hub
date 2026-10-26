@@ -46,7 +46,7 @@ class RowanHubBridge {
         uniqueId,
         hardwareVersion: 1,
         hardwareVersionString: '1',
-        softwareVersion: 11,
+        softwareVersion: 12,
         softwareVersionString: require('../package.json').version,
       },
     });
@@ -95,11 +95,14 @@ class RowanHubBridge {
     endpoint.events.onOff.onOff$Changed.on(async value => {
       if (!value || triggering) return;
       triggering = true;
-      try {
-        for (const action of scene.actions) {
+      // Errors must not skip the reset below, or the scene stays latched and never fires again
+      for (const action of scene.actions || []) {
+        try {
           await registry.set(action.device, action.capability, action.value);
+        } catch (e) {
+          console.error(`[Rowan Hub] Scene "${scene.name}" action failed (${action.device}): ${e.message}`);
         }
-      } finally {}
+      }
       setTimeout(async () => {
         try { await endpoint.set({ onOff: { onOff: false } }); } catch {}
         triggering = false;

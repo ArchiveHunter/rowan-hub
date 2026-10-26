@@ -250,7 +250,7 @@
     var url = id ? '/api/automations/' + id : '/api/automations';
 
     fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      .then(function (r) { return r.json(); })
+      .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Request failed'); }); })
       .then(function () { location.reload(); })
       .catch(function (e) { alert('Save failed: ' + e.message); });
   });

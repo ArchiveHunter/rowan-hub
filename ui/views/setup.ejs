@@ -198,16 +198,17 @@
       <span>Rowan Hub</span>
     </div>
 
-    <div class="progress-dots">
+    <div class="progress-dots"<%= accountOnly ? ' hidden' : '' %>>
       <div class="dot active" id="dot-0"></div>
       <div class="dot" id="dot-1"></div>
       <div class="dot" id="dot-2"></div>
       <div class="dot" id="dot-3"></div>
+      <div class="dot" id="dot-4"></div>
     </div>
 
     <!-- Step 0: Welcome -->
-    <div class="step active" id="step-0">
-      <div class="step-label">Step 1 of 4</div>
+    <div class="step<%= accountOnly ? '' : ' active' %>" id="step-0">
+      <div class="step-label">Step 1 of 5</div>
       <div class="step-title">Welcome to Rowan Hub</div>
       <div class="step-desc">
         Let's get your Matter bridge set up. It only takes a minute — we'll configure the bridge name, set your location for sunrise/sunset automations, and then you're ready to pair your platforms.
@@ -217,9 +218,45 @@
       </div>
     </div>
 
+    <!-- Step 1: Account (also shown alone when upgrading from a version without login) -->
+    <div class="step<%= accountOnly ? ' active' : '' %>" id="step-1">
+      <% if (accountOnly) { %>
+      <div class="step-label">Security update</div>
+      <div class="step-title">Create your login</div>
+      <div class="step-desc">Rowan Hub now requires a login, so other people and websites on your network can't control your home. Choose a username and password — you'll use these to sign in on every device.</div>
+      <% } else { %>
+      <div class="step-label">Step 2 of 5</div>
+      <div class="step-title">Create your login</div>
+      <div class="step-desc">This protects the Rowan Hub dashboard, so only you can control your devices and pairing. You'll sign in with these on every phone, tablet and computer.</div>
+      <% } %>
+
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="username" autocomplete="username" autocapitalize="none" maxlength="32" placeholder="e.g. admin">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="password" autocomplete="new-password" placeholder="At least 8 characters">
+      </div>
+      <div class="field">
+        <label>Confirm password</label>
+        <input type="password" id="password2" autocomplete="new-password">
+      </div>
+      <div class="error-msg" id="account-error"></div>
+
+      <div class="btn-row">
+        <% if (accountOnly) { %>
+        <button class="btn btn-primary" id="account-btn" onclick="createAccount()">Create login</button>
+        <% } else { %>
+        <button class="btn btn-secondary" onclick="goTo(0)">Back</button>
+        <button class="btn btn-primary" onclick="if (checkAccount()) goTo(2)">Continue</button>
+        <% } %>
+      </div>
+    </div>
+
     <!-- Step 1: Bridge settings -->
-    <div class="step" id="step-1">
-      <div class="step-label">Step 2 of 4</div>
+    <div class="step" id="step-2">
+      <div class="step-label">Step 3 of 5</div>
       <div class="step-title">Bridge settings</div>
       <div class="step-desc">Give your bridge a name and set the pairing code. These are what Apple Home, Alexa, and Google Home will use when you commission.</div>
 
@@ -243,14 +280,14 @@
       </div>
 
       <div class="btn-row">
-        <button class="btn btn-secondary" onclick="goTo(0)">Back</button>
-        <button class="btn btn-primary" onclick="goTo(2)">Continue</button>
+        <button class="btn btn-secondary" onclick="goTo(1)">Back</button>
+        <button class="btn btn-primary" onclick="goTo(3)">Continue</button>
       </div>
     </div>
 
     <!-- Step 2: Location -->
-    <div class="step" id="step-2">
-      <div class="step-label">Step 3 of 4</div>
+    <div class="step" id="step-3">
+      <div class="step-label">Step 4 of 5</div>
       <div class="step-title">Your location</div>
       <div class="step-desc">Used to calculate sunrise and sunset times for automations. Your coordinates are stored only on this device and never sent anywhere.</div>
 
@@ -274,14 +311,14 @@
       <div class="hint" style="margin-top:-12px; margin-bottom:16px;">Find your coordinates at <strong>latlong.net</strong> or use the button above.</div>
 
       <div class="btn-row">
-        <button class="btn btn-secondary" onclick="goTo(1)">Back</button>
-        <button class="btn btn-primary" onclick="goTo(3)">Continue</button>
+        <button class="btn btn-secondary" onclick="goTo(2)">Back</button>
+        <button class="btn btn-primary" onclick="goTo(4)">Continue</button>
       </div>
     </div>
 
     <!-- Step 3: Done -->
-    <div class="step" id="step-3">
-      <div class="step-label">Step 4 of 4</div>
+    <div class="step" id="step-4">
+      <div class="step-label">Step 5 of 5</div>
       <div class="done-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="20 6 9 17 4 12"/>
@@ -291,6 +328,7 @@
       <div class="step-desc">Here's what you've configured. Click Finish to save and restart the bridge — it'll be back in a few seconds.</div>
 
       <div class="done-summary">
+        <div class="done-summary-row"><span class="key">Username</span><span class="val" id="sum-user">—</span></div>
         <div class="done-summary-row"><span class="key">Bridge name</span><span class="val" id="sum-name">—</span></div>
         <div class="done-summary-row"><span class="key">Passcode</span><span class="val" id="sum-passcode">—</span></div>
         <div class="done-summary-row"><span class="key">Location</span><span class="val" id="sum-location">—</span></div>
@@ -299,7 +337,7 @@
       <div class="error-msg" id="setup-error"></div>
 
       <div class="btn-row">
-        <button class="btn btn-secondary" onclick="goTo(2)">Back</button>
+        <button class="btn btn-secondary" onclick="goTo(3)">Back</button>
         <button class="btn btn-primary" id="finish-btn" onclick="finish()">Finish &amp; restart</button>
       </div>
     </div>
@@ -314,11 +352,12 @@
   </div>
 </div>
 <script>
-let currentStep = 0;
+let currentStep = <%= accountOnly ? 1 : 0 %>;
 
 function goTo(n) {
-  if (n === 3) {
+  if (n === 4) {
     // Populate summary before showing done step
+    document.getElementById('sum-user').textContent     = document.getElementById('username').value.trim();
     document.getElementById('sum-name').textContent     = document.getElementById('bridgeName').value.trim() || 'Rowan Hub';
     document.getElementById('sum-passcode').textContent = document.getElementById('passcode').value.trim() || '20202021';
     const lat = document.getElementById('latitude').value;
@@ -332,9 +371,42 @@ function goTo(n) {
 }
 
 function updateDots(active) {
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 5; i++) {
     const d = document.getElementById('dot-' + i);
     d.className = 'dot' + (i === active ? ' active' : i < active ? ' done' : '');
+  }
+}
+
+function checkAccount() {
+  const errEl = document.getElementById('account-error');
+  const user = document.getElementById('username').value.trim();
+  const pw   = document.getElementById('password').value;
+  let msg = '';
+  if (!/^[A-Za-z0-9._-]{2,32}$/.test(user)) msg = 'Username must be 2–32 characters (letters, numbers, . _ -)';
+  else if (pw.length < 8) msg = 'Password must be at least 8 characters';
+  else if (pw !== document.getElementById('password2').value) msg = "Passwords don't match";
+  errEl.textContent = msg;
+  errEl.style.display = msg ? 'block' : 'none';
+  return !msg;
+}
+
+async function createAccount() {
+  if (!checkAccount()) return;
+  const btn = document.getElementById('account-btn');
+  const errEl = document.getElementById('account-error');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/setup/account', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: document.getElementById('username').value.trim(), password: document.getElementById('password').value }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Could not create login');
+    window.location.href = '/dashboard';
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+    btn.disabled = false;
   }
 }
 
@@ -358,6 +430,8 @@ async function finish() {
     passcode:      document.getElementById('passcode').value.trim(),
     discriminator: document.getElementById('discriminator').value,
     latitude:      document.getElementById('latitude').value,
+    username:      document.getElementById('username').value.trim(),
+    password:      document.getElementById('password').value,
     longitude:     document.getElementById('longitude').value,
   };
 
@@ -376,7 +450,7 @@ async function finish() {
   }
 
   // Show restarting state
-  document.getElementById('step-3').style.display = 'none';
+  document.getElementById('step-4').style.display = 'none';
   document.getElementById('restarting').classList.add('active');
 
   fetch('/api/system/restart', { method: 'POST' }).catch(() => {});

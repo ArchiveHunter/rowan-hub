@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const validate = require('./validate');
 
 const FILE = path.join(__dirname, '..', 'automations.json');
 
@@ -19,7 +20,7 @@ class AutomationsManager {
 
   create(data) {
     const automations = this.getAll();
-    const auto = { ...data, id: crypto.randomUUID(), enabled: true };
+    const auto = { ...validate.automation(data), id: crypto.randomUUID(), enabled: true };
     automations.push(auto);
     this.save(automations);
     return auto;
@@ -29,7 +30,7 @@ class AutomationsManager {
     const automations = this.getAll();
     const i = automations.findIndex(a => a.id === id);
     if (i === -1) throw new Error('Automation not found');
-    automations[i] = { ...automations[i], ...data, id };
+    automations[i] = { ...automations[i], ...validate.automation(data, true), id };
     this.save(automations);
     return automations[i];
   }

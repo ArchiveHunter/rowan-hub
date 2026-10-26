@@ -104,14 +104,32 @@ function load() {
 function save(config) {
   const backup = CONFIG_PATH + '.bak';
   if (fs.existsSync(CONFIG_PATH)) fs.copyFileSync(CONFIG_PATH, backup);
-  fs.writeFileSync(CONFIG_PATH, yaml.dump(config, { lineWidth: 120 }), 'utf8');
+  fs.writeFileSync(CONFIG_PATH, yaml.dump(config, { lineWidth: 120 }), { encoding: 'utf8', mode: 0o600 });
+  // config holds plugin credentials — keep both copies owner-only
+  try { fs.chmodSync(CONFIG_PATH, 0o600); fs.chmodSync(backup, 0o600); } catch {}
+}
+
+// Only known plugins may be loaded — the name comes from user-editable config.
+function assertPlugin(name) {
+  if (!Object.prototype.hasOwnProperty.call(PLUGIN_SCHEMAS, name)) throw new Error(`Unknown plugin: ${name}`);
+}
+
+function pluginPath(name) {
+  assertPlugin(name);
+  return path.join(__dirname, '..', 'plugins', name, 'index');
+}
+
+// Device IDs become Matter endpoint IDs and storage keys — keep them to [a-z0-9-].
+function slugify(s) {
+  return String(s).toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 }
 
 function addDevice(deviceConfig) {
   const config = load();
-  if (!deviceConfig.id) {
-    deviceConfig.id = deviceConfig.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-  }
+  assertPlugin(deviceConfig.plugin);
+  if (!deviceConfig.name) throw new Error('Device name required');
+  deviceConfig.id = slugify(deviceConfig.id || deviceConfig.name);
+  if (!deviceConfig.id) throw new Error('Device name must contain letters or numbers');
   if (config.devices.some(d => d.id === deviceConfig.id)) {
     throw new Error(`Device ID "${deviceConfig.id}" already exists`);
   }
@@ -124,6 +142,7 @@ function updateDevice(id, updates) {
   const config = load();
   const idx = config.devices.findIndex(d => d.id === id);
   if (idx === -1) throw new Error(`Device "${id}" not found`);
+  if (updates.plugin !== undefined) assertPlugin(updates.plugin);
   config.devices[idx] = { ...config.devices[idx], ...updates, id };
   save(config);
   return config.devices[idx];
@@ -151,12 +170,14 @@ function toggleDevice(id, enabled) {
 }
 
 function updatePluginGlobal(pluginName, values) {
+  assertPlugin(pluginName); // otherwise any top-level key (bridge, devices…) could be overwritten
   const config = load();
   config[pluginName] = { ...(config[pluginName] || {}), ...values };
   save(config);
 }
 
 function togglePlugin(name, enabled) {
+  assertPlugin(name);
   const config = load();
   if (!config.plugins) config.plugins = {};
   config.plugins[name] = { ...(config.plugins[name] || {}), enabled };
@@ -216,7 +237,7 @@ function completeSetup({ bridgeName, passcode, discriminator, latitude, longitud
     ...config.bridge,
     name: bridgeName || 'Rowan Hub',
     passcode: parseInt(passcode, 10) || 20202021,
-    discriminator: parseInt(discriminator, 10) ?? 3840,
+    discriminator: Number.isNaN(parseInt(discriminator, 10)) ? 3840 : parseInt(discriminator, 10),
   };
   config.location = { latitude: parseFloat(latitude), longitude: parseFloat(longitude) };
   config.devices = [];
@@ -224,4 +245,4 @@ function completeSetup({ bridgeName, passcode, discriminator, latitude, longitud
   save(config);
 }
 
-module.exports = { load, save, addDevice, updateDevice, removeDevice, toggleDevice, updatePluginGlobal, togglePlugin, getPlugins, getEnabledPluginNames, getSchemas, updateLocation, isSetupComplete, completeSetup, getMqttBrokerEnabled, setMqttBrokerEnabled };
+module.exports = { load, save, pluginPath, addDevice, updateDevice, removeDevice, toggleDevice, updatePluginGlobal, togglePlugin, getPlugins, getEnabledPluginNames, getSchemas, updateLocation, isSetupComplete, completeSetup, getMqttBrokerEnabled, setMqttBrokerEnabled };

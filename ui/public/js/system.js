@@ -256,6 +256,27 @@
     });
   }
 
+  // ── Account ───────────────────────────────────────────────────────────────────
+
+  var accountBtn = document.getElementById('btn-save-account');
+  if (accountBtn) {
+    accountBtn.addEventListener('click', function () {
+      accountBtn.disabled = true;
+      api('PUT', '/api/account', {
+        username: document.getElementById('acc-user').value.trim(),
+        currentPassword: document.getElementById('acc-current').value,
+        newPassword: document.getElementById('acc-new').value,
+      })
+        .then(function () {
+          document.getElementById('acc-current').value = '';
+          document.getElementById('acc-new').value = '';
+          showToast('Account updated');
+        })
+        .catch(function (e) { showToast(e.message, 'error'); })
+        .finally(function () { accountBtn.disabled = false; });
+    });
+  }
+
   // ── Update ────────────────────────────────────────────────────────────────────
 
   var updateBtn = document.getElementById('btn-update-now');

@@ -36,6 +36,13 @@
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M3 11H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v1"/></svg>
               </button>
             </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:6px; font-size:13px; color:var(--text-muted);">
+              User <code class="inline-code"><%= mqttUser %></code>
+              Password <code class="inline-code"><%= mqttPass %></code>
+              <button class="btn-icon" onclick="copy(<%= JSON.stringify(mqttPass) %>)" title="Copy password">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M3 11H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v1"/></svg>
+              </button>
+            </div>
             <% } else { %>
             <div style="color:var(--text-muted); font-size:13px;">Start the broker to see the connection address.</div>
             <% } %>
@@ -84,7 +91,7 @@
               <li>Go to <strong>Configuration → Configure MQTT</strong>.</li>
               <li>Set <strong>Host</strong> to <code class="inline-code"><%= localIp %></code></li>
               <li>Set <strong>Port</strong> to <code class="inline-code">1883</code></li>
-              <li>Leave User and Password blank (the internal broker uses no authentication).</li>
+              <li>Set <strong>User</strong> to <code class="inline-code"><%= mqttUser %></code> and <strong>Password</strong> to <code class="inline-code"><%= mqttPass %></code></li>
               <li>Set <strong>Topic</strong> to the value shown for your device below.</li>
               <li>Set <strong>Full Topic</strong> to <code class="inline-code">%prefix%/%topic%/</code></li>
               <li>Click Save — the device will reboot and start publishing to Rowan Hub.</li>
@@ -143,7 +150,7 @@
               <li>Open your Shelly device's web UI (go to its IP address).</li>
               <li>Go to <strong>Settings → MQTT</strong>.</li>
               <li>Enable MQTT and set <strong>Server</strong> to <code class="inline-code"><%= localIp %>:1883</code></li>
-              <li>Leave Username and Password blank.</li>
+              <li>Set <strong>Username</strong> to <code class="inline-code"><%= mqttUser %></code> and <strong>Password</strong> to <code class="inline-code"><%= mqttPass %></code></li>
               <li>Click Save — the device will reboot.</li>
               <li>Find the <strong>Device ID</strong> in <strong>Settings → Device Info</strong> (e.g. <code class="inline-code">shelly1-AABBCC</code>).</li>
               <li>Add this ID to the <strong>MQTT Device ID</strong> field for the device on the <a href="/devices">Devices page</a>.</li>

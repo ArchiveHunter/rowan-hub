@@ -97,26 +97,55 @@ else
   success "PM2 $(pm2 --version)"
 fi
 
+# ── Service user ──────────────────────────────────────────────────────────────
+# Rowan Hub runs unprivileged; only the MQTT broker helper below runs as root.
+SERVICE_USER=rowanhub
+if ! id -u "$SERVICE_USER" &>/dev/null; then
+  useradd --system --user-group --home-dir "$INSTALL_DIR" --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
+  success "Created service user $SERVICE_USER"
+else
+  success "Service user $SERVICE_USER exists"
+fi
+as_user() { runuser -u "$SERVICE_USER" -- "$@"; }
+
 # ── Clone / update ────────────────────────────────────────────────────────────
 header "Installing Rowan Hub…"
 
 if [[ -n "$UPGRADE" ]]; then
+  chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"   # older versions ran as root
   info "Pulling latest from GitHub…"
-  git -C "$INSTALL_DIR" fetch --quiet origin
-  git -C "$INSTALL_DIR" checkout --quiet main
-  git -C "$INSTALL_DIR" pull --quiet origin main
-  success "Updated to $(git -C "$INSTALL_DIR" describe --tags --always)"
+  as_user git -C "$INSTALL_DIR" fetch --quiet origin
+  as_user git -C "$INSTALL_DIR" checkout --quiet main
+  as_user git -C "$INSTALL_DIR" pull --quiet --ff-only origin main
+  success "Updated to $(as_user git -C "$INSTALL_DIR" describe --tags --always)"
 else
   info "Cloning to $INSTALL_DIR…"
-  git clone --quiet https://github.com/ArchiveHunter/rowan-hub.git "$INSTALL_DIR"
-  success "Cloned $(git -C "$INSTALL_DIR" describe --tags --always)"
+  install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 750 "$INSTALL_DIR"
+  as_user git clone --quiet https://github.com/ArchiveHunter/rowan-hub.git "$INSTALL_DIR"
+  success "Cloned $(as_user git -C "$INSTALL_DIR" describe --tags --always)"
 fi
 
 cd "$INSTALL_DIR"
 
 info "Installing npm dependencies…"
-npm install --omit=dev --quiet
+as_user env HOME="$INSTALL_DIR" npm_config_cache="$INSTALL_DIR/.npm-cache" \
+  npm ci --omit=dev --ignore-scripts --no-audit --no-fund --quiet
 success "Dependencies installed"
+
+# ── MQTT broker helper (the only part that needs root) ───────────────────────
+install -o root -g root -m 755 scripts/rowan-hub-mosquitto /usr/local/sbin/rowan-hub-mosquitto
+cat > /etc/sudoers.d/rowan-hub <<SUDOERS
+$SERVICE_USER ALL=(root) NOPASSWD: /usr/local/sbin/rowan-hub-mosquitto start, /usr/local/sbin/rowan-hub-mosquitto stop
+SUDOERS
+chmod 440 /etc/sudoers.d/rowan-hub
+visudo -cf /etc/sudoers.d/rowan-hub >/dev/null || { rm -f /etc/sudoers.d/rowan-hub; die "sudoers rule failed validation"; }
+# Pre-1.2 broker config allowed anonymous access — remove it; Rowan Hub rewrites it with a password
+if grep -qs "allow_anonymous true" /etc/mosquitto/conf.d/rowan-hub.conf; then
+  rm -f /etc/mosquitto/conf.d/rowan-hub.conf
+  systemctl stop mosquitto 2>/dev/null || true
+  warn "Removed old anonymous MQTT broker config — MQTT devices need the new username/password (see MQTT page)"
+fi
+success "MQTT broker helper installed"
 
 # ── Config ────────────────────────────────────────────────────────────────────
 if [[ ! -f config.yaml ]]; then
@@ -126,15 +155,16 @@ if [[ ! -f config.yaml ]]; then
 else
   success "config.yaml already exists — keeping your settings"
 fi
+chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
+chmod 750 "$INSTALL_DIR"
+chmod 600 config.yaml
 
 # ── PM2 ───────────────────────────────────────────────────────────────────────
 header "Starting Rowan Hub…"
 
-if [[ -n "$UPGRADE" ]]; then
-  pm2 restart rowan-hub --update-env 2>/dev/null || pm2 start ecosystem.config.js
-else
-  pm2 start ecosystem.config.js
-fi
+# delete + start (not restart) so PM2 picks up the service user from ecosystem.config.js
+pm2 delete rowan-hub &>/dev/null || true
+pm2 start ecosystem.config.js
 
 pm2 save --quiet
 success "Rowan Hub running via PM2"
@@ -156,9 +186,11 @@ echo -e "  HTTPS   →  ${BOLD}https://${LOCAL_IP}:3443${RESET}  (push notificat
 echo ""
 
 if [[ -n "$FIRST_RUN" ]]; then
-  echo -e "  ${YELLOW}Next step:${RESET} edit ${BOLD}${INSTALL_DIR}/config.yaml${RESET}"
-  echo -e "  Add your bridge settings and devices, then:"
-  echo -e "  ${BOLD}pm2 restart rowan-hub${RESET}"
+  echo -e "  ${YELLOW}Next step:${RESET} open the Web UI to run the setup wizard"
+  echo -e "  (create your login, name the bridge and set your location)."
+  echo ""
+elif [[ -n "$UPGRADE" ]]; then
+  echo -e "  ${YELLOW}Note:${RESET} if you haven't created a login yet, the Web UI will ask you to now."
   echo ""
 fi
 

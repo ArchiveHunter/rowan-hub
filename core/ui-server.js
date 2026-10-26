@@ -3,6 +3,7 @@ const https = require('https');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const net = require('net');
 const QRCode = require('qrcode');
 const selfsigned = require('selfsigned');
 const logger = require('./logger');
@@ -11,6 +12,8 @@ const automationsManager = require('./automations-manager');
 const scenesManager = require('./scenes-manager');
 const pushManager = require('./push-manager');
 const mqttBroker = require('./mqtt-broker');
+const auth = require('./auth');
+const { version } = require('../package.json');
 
 const CERT_PATH = path.join(__dirname, '..', 'rowan-hub-cert.pem');
 const KEY_PATH  = path.join(__dirname, '..', 'rowan-hub-key.pem');
@@ -24,7 +27,7 @@ async function loadOrGenerateCert() {
   const opts  = { days: 3650, keySize: 2048 };
   const pems  = await selfsigned.generate(attrs, opts);
   fs.writeFileSync(CERT_PATH, pems.cert);
-  fs.writeFileSync(KEY_PATH,  pems.private);
+  fs.writeFileSync(KEY_PATH,  pems.private, { mode: 0o600 });
   return { cert: pems.cert, key: pems.private };
 }
 
@@ -75,6 +78,39 @@ async function startUiServer(registry, config, scheduler, bridge) {
 
   app.set('view engine', 'ejs');
   app.set('views', path.join(__dirname, '..', 'ui', 'views'));
+  app.locals.version = version;
+
+  // ─── Request guard: DNS rebinding + cross-site requests ──────────────────────
+  // The UI has no login, so stop other websites (opened in a browser on the LAN)
+  // from driving the API. Host must be an IP, localhost, *.local, this machine's
+  // hostname, or listed in ui.allowedHosts; mutating requests must be same-origin.
+
+  const allowedHosts = new Set(['localhost', os.hostname().toLowerCase(),
+    ...(config.allowedHosts || []).map(h => String(h).toLowerCase())]);
+
+  function hostAllowed(hostHeader) {
+    if (!hostHeader) return false;
+    const host = hostHeader.toLowerCase().replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
+    return allowedHosts.has(host) || host.endsWith('.local') || net.isIP(host) !== 0;
+  }
+
+  app.use((req, res, next) => {
+    if (!hostAllowed(req.headers.host)) {
+      return res.status(403).send('Host not allowed — add it to ui.allowedHosts in config.yaml');
+    }
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      const origin = req.headers.origin;
+      let sameOrigin = true;
+      if (origin) {
+        try { sameOrigin = new URL(origin).host === req.headers.host; } catch { sameOrigin = false; }
+      }
+      if (!sameOrigin || req.headers['sec-fetch-site'] === 'cross-site') {
+        return res.status(403).json({ error: 'Cross-site request blocked' });
+      }
+    }
+    next();
+  });
+
   app.use(express.json());
   app.use(express.static(path.join(__dirname, '..', 'ui', 'public')));
 
@@ -101,26 +137,107 @@ async function startUiServer(registry, config, scheduler, bridge) {
     for (const res of logClients) { try { res.write(payload); } catch {} }
   });
 
-  // ─── Setup wizard redirect ───────────────────────────────────────────────────
+  // ─── Access gate: setup wizard → login → app ─────────────────────────────────
 
   app.use((req, res, next) => {
-    if (configManager.isSetupComplete()) return next();
-    const allowed = req.path === '/setup' || req.path.startsWith('/api/setup') || req.path === '/api/system/restart';
-    if (allowed) return next();
-    res.redirect('/setup');
+    const isApi = req.path.startsWith('/api/');
+    const sendTo = (to) => isApi ? res.status(401).json({ error: 'Not signed in', redirect: to }) : res.redirect(to);
+
+    if (!configManager.isSetupComplete()) {
+      const allowed = req.path === '/setup' || req.path === '/api/setup/complete' || req.path === '/api/system/restart';
+      return allowed ? next() : sendTo('/setup');
+    }
+    if (!auth.hasAccount()) {
+      // Upgraded from a version without login — creating the account is the only thing allowed
+      const allowed = req.path === '/setup' || req.path === '/api/setup/account';
+      return allowed ? next() : sendTo('/setup');
+    }
+    if (req.path === '/login' || req.path === '/api/auth/login') return next();
+
+    const user = auth.currentUser(req);
+    if (user) { res.locals.user = user; return next(); }
+    if (isApi) return res.status(401).json({ error: 'Not signed in' });
+    res.redirect('/login?next=' + encodeURIComponent(req.originalUrl));
   });
 
   // ─── Setup wizard ────────────────────────────────────────────────────────────
 
   app.get('/setup', (req, res) => {
-    if (configManager.isSetupComplete()) return res.redirect('/dashboard');
+    const setupComplete = configManager.isSetupComplete();
+    if (setupComplete && auth.hasAccount()) return res.redirect('/dashboard');
     const cfg = configManager.load();
-    res.render('setup', { bridge: cfg.bridge || {}, location: cfg.location || {} });
+    res.render('setup', { bridge: cfg.bridge || {}, location: cfg.location || {}, accountOnly: setupComplete });
   });
 
   app.post('/api/setup/complete', (req, res) => {
+    // Once setup is done this must never run again — it wipes the device list
+    if (configManager.isSetupComplete()) return res.status(403).json({ error: 'Setup already complete' });
     try {
+      const { username, password } = req.body || {};
+      auth.validateCredentials(username, password);
       configManager.completeSetup(req.body);
+      auth.setCredentials(username, password);
+      auth.setSessionCookie(req, res);
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/setup/account', (req, res) => {
+    if (auth.hasAccount()) return res.status(403).json({ error: 'Account already exists' });
+    try {
+      const { username, password } = req.body || {};
+      auth.setCredentials(username, password);
+      auth.setSessionCookie(req, res);
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  });
+
+  // ─── Login / account ─────────────────────────────────────────────────────────
+
+  // Only same-site paths — never //evil.com or /\evil.com
+  const safeNext = (n) => (typeof n === 'string' && /^\/(?![/\\])/.test(n)) ? n : '/dashboard';
+
+  app.get('/login', (req, res) => {
+    if (auth.currentUser(req)) return res.redirect(safeNext(req.query.next));
+    res.render('login', { next: safeNext(req.query.next) });
+  });
+
+  app.post('/api/auth/login', (req, res) => {
+    const ip = req.socket.remoteAddress;
+    if (auth.isLockedOut(ip)) {
+      return res.status(429).json({ error: 'Too many failed attempts — try again in 15 minutes' });
+    }
+    const { username, password } = req.body || {};
+    if (!auth.checkLogin(username, password)) {
+      auth.recordFailure(ip);
+      console.warn(`[Auth] Failed login for "${String(username || '').slice(0, 32)}" from ${ip}`);
+      return res.status(401).json({ error: 'Incorrect username or password' });
+    }
+    auth.clearFailures(ip);
+    auth.setSessionCookie(req, res);
+    console.log(`[Auth] ${auth.getAccount().username} signed in from ${ip}`);
+    res.json({ ok: true });
+  });
+
+  app.post('/api/auth/logout', (req, res) => {
+    auth.clearSessionCookie(res);
+    res.json({ ok: true });
+  });
+
+  app.put('/api/account', (req, res) => {
+    const { currentPassword, username, newPassword } = req.body || {};
+    const account = auth.getAccount();
+    if (!auth.verifyPassword(currentPassword || '', account.passwordHash)) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+    try {
+      // Blank new password = keep the current one (username-only change)
+      auth.setCredentials(username || account.username, newPassword || currentPassword);
+      auth.setSessionCookie(req, res); // other sessions are signed out by the new secret
       res.json({ ok: true });
     } catch (e) {
       res.status(400).json({ error: e.message });
@@ -158,7 +275,10 @@ async function startUiServer(registry, config, scheduler, bridge) {
       .flat().find(i => i.family === 'IPv4' && !i.internal)?.address || 'localhost';
     const tasmotaDevices = cfg.devices.filter(d => d.plugin === 'tasmota' && d.enabled !== false);
     const shellyDevices  = cfg.devices.filter(d => d.plugin === 'shelly'  && d.enabled !== false);
+    const { username: mqttUser, password: mqttPass } = mqttBroker.getCredentials();
     res.render('mqtt', {
+      mqttUser,
+      mqttPass,
       page: 'mqtt',
       brokerAvailable: await mqttBroker.isAvailable(),
       brokerRunning:   await mqttBroker.isRunning(),
@@ -260,7 +380,9 @@ async function startUiServer(registry, config, scheduler, bridge) {
     }
 
     if (!enabled) {
-      await bridge.removeDevice(req.params.id);
+      try { await bridge.removeDevice(req.params.id); } catch (e) {
+        return res.status(500).json({ error: `Failed to remove device: ${e.message}` });
+      }
       registry.unregister(req.params.id);
       return res.json({ ok: true, message: 'Device disabled and removed from Matter.' });
     }
@@ -270,9 +392,8 @@ async function startUiServer(registry, config, scheduler, bridge) {
     const deviceConfig = cfg.devices.find(d => d.id === req.params.id);
     if (!deviceConfig) return res.status(404).json({ error: 'Device not found in config' });
 
-    const pluginPath = path.join(__dirname, '..', 'plugins', deviceConfig.plugin, 'index');
     let plugin;
-    try { plugin = require(pluginPath); } catch {
+    try { plugin = require(configManager.pluginPath(deviceConfig.plugin)); } catch {
       return res.status(400).json({ error: `Plugin not found: ${deviceConfig.plugin}` });
     }
 
@@ -410,7 +531,10 @@ async function startUiServer(registry, config, scheduler, bridge) {
       const { latitude, longitude } = req.body;
       if (latitude === undefined || longitude === undefined) throw new Error('latitude and longitude required');
       configManager.updateLocation(latitude, longitude);
-      if (scheduler) scheduler.reload();
+      if (scheduler) {
+        scheduler.setLocation(configManager.load().location);
+        scheduler.reload();
+      }
       res.json({ ok: true });
     } catch (e) {
       res.status(400).json({ error: e.message });
@@ -490,18 +614,53 @@ async function startUiServer(registry, config, scheduler, bridge) {
     setTimeout(() => process.exit(0), 500);
   });
 
-  app.post('/api/system/update', (req, res) => {
-    const { exec } = require('child_process');
+  // Updates only move to the latest published GitHub release tag (never whatever is on
+  // main), fast-forward only, with dependency install scripts disabled. Rolls back on failure.
+  let updating = false;
+  app.post('/api/system/update', async (req, res) => {
+    const info = pushManager.getUpdateInfo();
+    if (!info.updateAvailable) return res.status(400).json({ error: 'No newer release available' });
+    if (updating) return res.status(409).json({ error: 'Update already in progress' });
+    updating = true;
+
+    const { execFile } = require('child_process');
     const cwd = path.join(__dirname, '..');
-    exec('git pull --ff-only', { cwd }, (err, _stdout, stderr) => {
-      if (err) {
-        return res.status(400).json({ error: 'Update failed: ' + (stderr || err.message).trim() });
-      }
-      res.json({ ok: true, message: 'Updating…' });
-      exec('npm install --omit=dev', { cwd }, () => {
-        setTimeout(() => process.exit(0), 500);
+    const env = { ...process.env, HOME: os.userInfo().homedir, npm_config_cache: path.join(cwd, '.npm-cache') };
+    const run = (cmd, args) => new Promise((resolve, reject) => {
+      execFile(cmd, args, { cwd, env, timeout: 300000 }, (err, stdout, stderr) => {
+        if (err) reject(new Error((stderr || err.message).trim().split('\n').slice(-3).join(' ')));
+        else resolve(stdout.trim());
       });
     });
+
+    const tag = `v${info.latestVersion}`;
+    let prev;
+    try {
+      prev = await run('git', ['rev-parse', 'HEAD']);
+      await run('git', ['fetch', '--quiet', 'origin', `+refs/tags/${tag}:refs/tags/${tag}`]);
+      await run('git', ['merge', '--ff-only', '--quiet', `${tag}^{commit}`]);
+    } catch (e) {
+      updating = false;
+      return res.status(400).json({ error: `Update failed: ${e.message}` });
+    }
+
+    try {
+      await run('npm', ['ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund']);
+    } catch (e) {
+      console.error(`[Update] npm ci failed (${e.message}) — rolling back to ${prev.slice(0, 7)}`);
+      try {
+        await run('git', ['reset', '--hard', '--quiet', prev]);
+        await run('npm', ['ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund']);
+      } catch (e2) {
+        console.error(`[Update] Rollback dependency install failed: ${e2.message}`);
+      }
+      updating = false;
+      return res.status(500).json({ error: `Update failed while installing dependencies — rolled back. ${e.message}` });
+    }
+
+    console.log(`[Update] Updated to ${tag} — restarting`);
+    res.json({ ok: true, message: `Updated to ${tag}. Restarting…` });
+    setTimeout(() => process.exit(0), 500);
   });
 
   app.listen(port, () => {

@@ -9,6 +9,7 @@ const Scheduler = require('./core/scheduler');
 const scenesManager = require('./core/scenes-manager');
 const pushManager = require('./core/push-manager');
 const mqttBroker = require('./core/mqtt-broker');
+const configManager = require('./core/config-manager');
 
 async function main() {
   const configPath = path.join(__dirname, 'config.yaml');
@@ -53,10 +54,9 @@ async function main() {
       continue;
     }
 
-    const pluginPath = path.join(__dirname, 'plugins', deviceConfig.plugin, 'index');
     let plugin;
     try {
-      plugin = require(pluginPath);
+      plugin = require(configManager.pluginPath(deviceConfig.plugin));
     } catch {
       console.error(`[Rowan Hub] Plugin not found: ${deviceConfig.plugin}`);
       process.exit(1);
@@ -96,8 +96,21 @@ async function main() {
   const scheduler = new Scheduler(registry, config.location);
   scheduler.start();
 
-  registry.on('device-offline', ({ name }) => {
-    pushManager.send('Device Offline', `${name} is not responding.`, { tag: `offline-${name}` });
+  // Registry marks a device offline after 2 min of silence; only notify if it is still
+  // offline 3 min later, so brief drops (e.g. WLED WebSocket reconnects) don't alert.
+  const OFFLINE_GRACE_MS = 3 * 60 * 1000;
+  const offlineTimers = new Map();
+  registry.on('device-offline', ({ id, name }) => {
+    clearTimeout(offlineTimers.get(id));
+    offlineTimers.set(id, setTimeout(() => {
+      offlineTimers.delete(id);
+      if (!registry.get(id)) return; // disabled/removed in the meantime
+      pushManager.send('Device Offline', `${name} is not responding.`, { tag: `offline-${name}` });
+    }, OFFLINE_GRACE_MS));
+  });
+  registry.on('device-online', ({ id }) => {
+    clearTimeout(offlineTimers.get(id));
+    offlineTimers.delete(id);
   });
 
   scheduler.on('fired', ({ name }) => {

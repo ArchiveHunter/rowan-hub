@@ -2,7 +2,7 @@
   <div class="sidebar-logo">
     <img src="/rowan-hub.png" alt="Rowan Hub" class="logo-img">
     <span class="logo-text">Rowan Hub</span>
-    <span class="logo-version">v1.0</span>
+    <span class="logo-version">v<%= locals.version %></span>
   </div>
 
   <nav class="sidebar-nav">
@@ -89,6 +89,11 @@
       </svg>
       <svg class="icon-moon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
         <path d="M13.5 10A6 6 0 0 1 6 2.5a6 6 0 1 0 7.5 7.5z"/>
+      </svg>
+    </button>
+    <button class="theme-toggle" onclick="signOut()" title="Sign out<%= locals.user ? ' (' + locals.user + ')' : '' %>" aria-label="Sign out">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 14H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3"/><polyline points="10 11 14 8 10 5"/><line x1="14" y1="8" x2="6" y2="8"/>
       </svg>
     </button>
     <span class="sidebar-status" id="sidebar-status">

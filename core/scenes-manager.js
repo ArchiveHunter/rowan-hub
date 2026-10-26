@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const validate = require('./validate');
 
 const FILE = path.join(__dirname, '..', 'scenes.json');
 
@@ -19,7 +20,7 @@ class ScenesManager {
 
   create(data) {
     const scenes = this.getAll();
-    const scene = { ...data, id: crypto.randomUUID() };
+    const scene = { ...validate.scene(data), id: crypto.randomUUID() };
     scenes.push(scene);
     this.save(scenes);
     return scene;
@@ -29,7 +30,7 @@ class ScenesManager {
     const scenes = this.getAll();
     const i = scenes.findIndex(s => s.id === id);
     if (i === -1) throw new Error('Scene not found');
-    scenes[i] = { ...scenes[i], ...data, id };
+    scenes[i] = { ...scenes[i], ...validate.scene(data, true), id };
     this.save(scenes);
     return scenes[i];
   }

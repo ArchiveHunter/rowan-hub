@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Privileged helper for Rowan Hub's internal MQTT broker.
+#
+# install.sh copies this root-owned to /usr/local/sbin/rowan-hub-mosquitto and lets the
+# rowanhub service user run it via sudo (/etc/sudoers.d/rowan-hub). It runs as root, so it
+# only accepts a fixed set of commands and a strictly validated password line.
+#
+#   start   stdin: one mosquitto password-file line (user:$7$iter$salt$hash)
+#   stop
+set -euo pipefail
+
+CONF=/etc/mosquitto/conf.d/rowan-hub.conf
+PASSWD=/etc/mosquitto/rowan-hub.passwd
+
+case "${1:-}" in
+  start)
+    IFS= read -r line
+    if [[ ! "$line" =~ ^[A-Za-z0-9_-]{1,32}:\$7\$[0-9]{1,7}\$[A-Za-z0-9+/=]{1,64}\$[A-Za-z0-9+/=]{1,128}$ ]]; then
+      echo "invalid password line" >&2
+      exit 2
+    fi
+    umask 077
+    printf '%s\n' "$line" > "$PASSWD"
+    chown mosquitto:mosquitto "$PASSWD"
+    chmod 600 "$PASSWD"
+    printf 'listener 1883\nallow_anonymous false\npassword_file %s\n' "$PASSWD" > "$CONF"
+    chmod 644 "$CONF"
+    systemctl restart mosquitto
+    ;;
+  stop)
+    systemctl stop mosquitto
+    ;;
+  *)
+    echo "usage: $0 start|stop" >&2
+    exit 2
+    ;;
+esac

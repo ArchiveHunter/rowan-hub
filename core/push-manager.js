@@ -7,6 +7,16 @@ const KEYS_PATH = path.join(__dirname, '..', 'push-vapid.json');
 const SUBS_PATH = path.join(__dirname, '..', 'push-subscriptions.json');
 const { version } = require('../package.json');
 
+// true if semver a > b (ignores pre-release suffixes)
+function isNewer(a, b) {
+  const pa = String(a).split('-')[0].split('.').map(Number);
+  const pb = String(b).split('-')[0].split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+  }
+  return false;
+}
+
 class PushManager {
   constructor() {
     this._keys = this._loadKeys();
@@ -20,7 +30,7 @@ class PushManager {
       return JSON.parse(fs.readFileSync(KEYS_PATH, 'utf8'));
     }
     const keys = webpush.generateVAPIDKeys();
-    fs.writeFileSync(KEYS_PATH, JSON.stringify(keys, null, 2));
+    fs.writeFileSync(KEYS_PATH, JSON.stringify(keys, null, 2), { mode: 0o600 });
     return keys;
   }
 
@@ -38,6 +48,13 @@ class PushManager {
   }
 
   addSubscription(sub) {
+    // endpoint is POSTed to on every notification — only accept real https push endpoints
+    let url;
+    try { url = new URL(sub?.endpoint); } catch { throw new Error('Invalid subscription endpoint'); }
+    if (url.protocol !== 'https:' || !sub.keys?.p256dh || !sub.keys?.auth) {
+      throw new Error('Invalid push subscription');
+    }
+    if (this._subscriptions.length >= 50) throw new Error('Too many push subscriptions');
     if (!this._subscriptions.find(s => s.endpoint === sub.endpoint)) {
       this._subscriptions.push(sub);
       this._saveSubs();
@@ -70,9 +87,8 @@ class PushManager {
     return {
       currentVersion: version,
       latestVersion:  this._latestRelease?.version || null,
-      updateAvailable: this._latestRelease
-        ? this._latestRelease.version !== version
-        : false,
+      // Strictly newer only — a dev copy ahead of the latest release must not offer a "downgrade"
+      updateAvailable: this._latestRelease ? isNewer(this._latestRelease.version, version) : false,
       releaseUrl:   this._latestRelease?.url || null,
       publishedAt:  this._latestRelease?.publishedAt || null,
     };
@@ -85,7 +101,8 @@ class PushManager {
         { timeout: 8000, headers: { 'User-Agent': 'Rowan-Hub' } }
       );
       const latest = data.tag_name?.replace(/^v/, '');
-      if (!latest) return;
+      // Tag name is used in git commands — only accept plain x.y.z versions
+      if (!latest || !/^\d+\.\d+\.\d+$/.test(latest)) return;
 
       this._latestRelease = {
         version:     latest,
@@ -93,7 +110,7 @@ class PushManager {
         publishedAt: data.published_at,
       };
 
-      if (latest !== version) {
+      if (isNewer(latest, version)) {
         await this.send(
           'Rowan Hub — Update Available',
           `v${latest} is available (you have v${version}).`,

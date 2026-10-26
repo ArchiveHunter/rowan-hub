@@ -19,6 +19,23 @@
     try { return localStorage.getItem(THEME_KEY) || 'dark'; } catch (e) { return 'dark'; }
   })());
 
+  // ── Session ──────────────────────────────────────────────────────────────────
+
+  // Any API call that comes back 401 means the session expired — go to the login page
+  var _fetch = window.fetch.bind(window);
+  window.fetch = function () {
+    return _fetch.apply(null, arguments).then(function (res) {
+      if (res.status === 401 && location.pathname !== '/login') {
+        location.href = '/login?next=' + encodeURIComponent(location.pathname + location.search);
+      }
+      return res;
+    });
+  };
+
+  window.signOut = function () {
+    _fetch('/api/auth/logout', { method: 'POST' }).finally(function () { location.href = '/login'; });
+  };
+
   // ── Toast notifications ──────────────────────────────────────────────────────
 
   window.showToast = function (msg, type) {

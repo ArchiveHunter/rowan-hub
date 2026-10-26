@@ -176,6 +176,27 @@
         </div>
       </div>
 
+      <!-- Account -->
+      <div class="card" style="margin-top:24px">
+        <div class="card-title">Account</div>
+        <p class="text-muted" style="font-size:13px;margin-bottom:16px">Signed in as <strong><%= locals.user %></strong>. Changing your password signs out every other device.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:flex-end">
+          <div>
+            <label class="form-label">Username</label>
+            <input type="text" class="form-input" id="acc-user" value="<%= locals.user %>" autocomplete="username" autocapitalize="none" maxlength="32">
+          </div>
+          <div>
+            <label class="form-label">Current password</label>
+            <input type="password" class="form-input" id="acc-current" autocomplete="current-password">
+          </div>
+          <div>
+            <label class="form-label">New password</label>
+            <input type="password" class="form-input" id="acc-new" autocomplete="new-password" placeholder="At least 8 characters">
+          </div>
+          <button class="btn btn-primary" id="btn-save-account">Save</button>
+        </div>
+      </div>
+
       <!-- Danger zone -->
       <div class="danger-zone" style="margin-top:24px">
         <div class="danger-zone-header">

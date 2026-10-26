@@ -18,6 +18,11 @@ class Scheduler extends EventEmitter {
     console.log('[Scheduler] Started');
   }
 
+  setLocation(location) {
+    this._lat = location?.latitude ?? this._lat;
+    this._lon = location?.longitude ?? this._lon;
+  }
+
   reload() {
     for (const t of this._timers.values()) clearTimeout(t);
     this._timers.clear();
@@ -30,7 +35,12 @@ class Scheduler extends EventEmitter {
 
     for (const auto of automationsManager.getAll()) {
       if (!auto.enabled) continue;
-      const fireAt = this._resolveTime(auto.trigger, now, sun);
+      // A malformed automation must not take down the whole scheduler (or crash-loop startup)
+      let fireAt;
+      try { fireAt = this._resolveTime(auto.trigger, now, sun); } catch (e) {
+        console.error(`[Scheduler] Skipping "${auto.name}": invalid trigger (${e.message})`);
+        continue;
+      }
       if (!fireAt || fireAt <= now) continue;
 
       const delay = fireAt - now;

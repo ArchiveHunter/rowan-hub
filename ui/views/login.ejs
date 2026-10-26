@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <%- include('partials/head') %>
+  <style>
+    .login-shell { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .login-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      width: 100%; max-width: 380px; padding: 36px;
+    }
+    .login-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+    .login-logo img { width: 36px; height: 36px; object-fit: contain; }
+    .login-logo span { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+    .login-card .form-input { width: 100%; }
+    .login-card .field { margin-bottom: 16px; }
+    .login-card .btn { width: 100%; justify-content: center; padding: 12px; margin-top: 8px; }
+    .login-error { font-size: 13px; color: var(--danger); margin-top: 12px; min-height: 18px; }
+  </style>
+</head>
+<body>
+<div class="login-shell">
+  <form class="login-card" id="login-form">
+    <div class="login-logo">
+      <img src="/rowan-hub.png" alt="Rowan Hub">
+      <span>Rowan Hub</span>
+    </div>
+    <div class="field">
+      <label class="form-label" for="username">Username</label>
+      <input class="form-input" id="username" autocomplete="username" autocapitalize="none" required autofocus>
+    </div>
+    <div class="field">
+      <label class="form-label" for="password">Password</label>
+      <input class="form-input" id="password" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="btn btn-primary" id="login-btn" type="submit">Sign in</button>
+    <div class="login-error" id="login-error" role="alert"></div>
+  </form>
+</div>
+<script>
+  var NEXT = <%- JSON.stringify(next).replace(/</g, '\\u003c') %>;
+  (function () {
+    try { document.documentElement.dataset.theme = localStorage.getItem('rowan-hub-theme') || 'dark'; } catch (e) {}
+  })();
+  document.getElementById('login-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var btn = document.getElementById('login-btn');
+    var err = document.getElementById('login-error');
+    err.textContent = '';
+    btn.disabled = true;
+    fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value,
+      }),
+    })
+      .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Sign in failed'); }); })
+      .then(function () { window.location.href = NEXT; })
+      .catch(function (e) { err.textContent = e.message; btn.disabled = false; });
+  });
+</script>
+</body>
+</html>

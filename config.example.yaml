@@ -10,6 +10,10 @@ bridge:
 
 ui:
   port: 3088
+  # Hostnames the web UI answers to, besides IP addresses, localhost, *.local and
+  # this machine's hostname (protects against DNS-rebinding attacks)
+  # allowedHosts:
+  #   - hub.example.com
 
 # ── Internal MQTT broker ──────────────────────────────────────────────────────
 # Requires Mosquitto to be installed (included by install.sh)
