@@ -9,12 +9,10 @@ class Scheduler extends EventEmitter {
     this._lat = location?.latitude ?? 51.5;
     this._lon = location?.longitude ?? -0.12;
     this._timers = new Map();
-    this._midnightTimer = null;
   }
 
   start() {
-    this._scheduleDay();
-    this._scheduleMidnight();
+    this._scheduleAll();
     console.log('[Scheduler] Started');
   }
 
@@ -26,27 +24,40 @@ class Scheduler extends EventEmitter {
   reload() {
     for (const t of this._timers.values()) clearTimeout(t);
     this._timers.clear();
-    this._scheduleDay();
+    this._scheduleAll();
   }
 
-  _scheduleDay() {
-    const now = new Date();
-    const sun = suncalc.getTimes(now, this._lat, this._lon);
+  _scheduleAll() {
+    for (const auto of automationsManager.getAll()) this._schedule(auto);
+  }
 
-    for (const auto of automationsManager.getAll()) {
-      if (!auto.enabled) continue;
-      // A malformed automation must not take down the whole scheduler (or crash-loop startup)
-      let fireAt;
-      try { fireAt = this._resolveTime(auto.trigger, now, sun); } catch (e) {
-        console.error(`[Scheduler] Skipping "${auto.name}": invalid trigger (${e.message})`);
-        continue;
-      }
-      if (!fireAt || fireAt <= now) continue;
-
-      const delay = fireAt - now;
-      console.log(`[Scheduler] "${auto.name}" scheduled for ${fireAt.toLocaleTimeString()}`);
-      this._timers.set(auto.id, setTimeout(() => this._fire(auto), delay));
+  // Each automation is booked for its next run (however many days ahead) and re-booked when it
+  // fires. Booking only "the rest of today" and rebuilding at 00:00:30 silently skipped 00:00 triggers.
+  _schedule(auto, after = new Date()) {
+    clearTimeout(this._timers.get(auto.id));
+    this._timers.delete(auto.id);
+    if (!auto.enabled) return;
+    // A malformed automation must not take down the whole scheduler (or crash-loop startup)
+    let fireAt;
+    try { fireAt = this._nextRun(auto.trigger, after); } catch (e) {
+      console.error(`[Scheduler] Skipping "${auto.name}": invalid trigger (${e.message})`);
+      return;
     }
+    if (!fireAt) return;
+
+    console.log(`[Scheduler] "${auto.name}" scheduled for ${fireAt.toLocaleString()}`);
+    const delay = Math.max(0, fireAt - Date.now());
+    this._timers.set(auto.id, setTimeout(() => this._fire(auto, fireAt), delay));
+  }
+
+  // First fire time strictly after `after`, looking up to a week ahead (covers any day-of-week filter)
+  _nextRun(trigger, after) {
+    for (let d = 0; d < 8; d++) {
+      const day = new Date(after.getFullYear(), after.getMonth(), after.getDate() + d, 12);
+      const at = this._resolveTime(trigger, day, suncalc.getTimes(day, this._lat, this._lon));
+      if (at && at > after) return at;
+    }
+    return null;
   }
 
   _resolveTime(trigger, now, sun) {
@@ -74,22 +85,21 @@ class Scheduler extends EventEmitter {
     return base;
   }
 
-  // Next fire time for every enabled automation (looks up to a week ahead) — for the UI.
+  // Next fire time for every enabled automation — for the UI.
   getNextRuns(now = new Date()) {
     const out = {};
     for (const auto of automationsManager.getAll()) {
       if (!auto.enabled) continue;
-      for (let d = 0; d < 8; d++) {
-        const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d, 12);
-        let at;
-        try { at = this._resolveTime(auto.trigger, day, suncalc.getTimes(day, this._lat, this._lon)); } catch { break; }
-        if (at && at > now) { out[auto.id] = at; break; }
-      }
+      let at;
+      try { at = this._nextRun(auto.trigger, now); } catch { continue; }
+      if (at) out[auto.id] = at;
     }
     return out;
   }
 
-  async _fire(auto) {
+  async _fire(auto, firedAt) {
+    // Book the next run first, so a reload() during the actions below can't leave two timers
+    this._schedule(auto, firedAt);
     console.log(`[Scheduler] Firing: "${auto.name}"`);
     for (const action of auto.actions) {
       try {
@@ -101,21 +111,9 @@ class Scheduler extends EventEmitter {
     this.emit('fired', { id: auto.id, name: auto.name });
   }
 
-  _scheduleMidnight() {
-    const now = new Date();
-    const midnight = new Date(now);
-    midnight.setHours(24, 0, 30, 0); // 30s past midnight to avoid edge cases
-    this._midnightTimer = setTimeout(() => {
-      for (const t of this._timers.values()) clearTimeout(t);
-      this._timers.clear();
-      this._scheduleDay();
-      this._scheduleMidnight();
-    }, midnight - now);
-  }
-
   destroy() {
     for (const t of this._timers.values()) clearTimeout(t);
-    clearTimeout(this._midnightTimer);
+    this._timers.clear();
   }
 }
 
