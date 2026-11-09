@@ -61,16 +61,21 @@
       var lat = parseFloat(document.getElementById('loc-lat').value);
       var lon = parseFloat(document.getElementById('loc-lon').value);
       if (isNaN(lat) || isNaN(lon)) { showToast('Enter valid coordinates', 'error'); return; }
+      var tzSel = document.getElementById('loc-tz');
 
       fetch('/api/location', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ latitude: lat, longitude: lon }),
+        body: JSON.stringify({ latitude: lat, longitude: lon, timezone: tzSel ? tzSel.value : undefined }),
       })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          if (data.ok) showToast('Location saved', 'success');
-          else showToast(data.error || 'Save failed', 'error');
+          if (data.ok) {
+            showToast('Location saved', 'success');
+            var hint = document.getElementById('tz-hint');
+            if (hint) hint.textContent = '';
+            if (tzSel) tzSel.dataset.saved = data.timezone;
+          } else showToast(data.error || 'Save failed', 'error');
         })
         .catch(function () { showToast('Save failed', 'error'); });
     });

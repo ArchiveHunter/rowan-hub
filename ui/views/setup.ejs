@@ -88,7 +88,7 @@
       text-transform: uppercase;
       letter-spacing: 0.06em;
     }
-    .field input {
+    .field input, .field select {
       width: 100%;
       background: var(--surface-2);
       border: 1px solid var(--border);
@@ -99,7 +99,7 @@
       outline: none;
       transition: border-color var(--transition);
     }
-    .field input:focus { border-color: var(--accent); }
+    .field input:focus, .field select:focus { border-color: var(--accent); }
     .field .hint {
       font-size: 12px;
       color: var(--text-muted);
@@ -317,6 +317,14 @@
       </div>
       <div class="hint" style="margin-top:-12px; margin-bottom:16px;">Find your coordinates at <strong>latlong.net</strong> or use the button above.</div>
 
+      <div class="field">
+        <label>Timezone</label>
+        <select id="timezone">
+          <% timezones.forEach(function (z) { %><option value="<%= z %>"<%= z === location.timezone ? ' selected' : '' %>><%= z.replace(/_/g, ' ') %></option><% }) %>
+        </select>
+      </div>
+      <div class="hint" style="margin-top:-12px; margin-bottom:16px;">Automations run on this local time, clock changes included. Filled in from this device.</div>
+
       <div class="btn-row">
         <button class="btn btn-secondary" onclick="goTo(2)">Back</button>
         <button class="btn btn-primary" onclick="goTo(4)">Continue</button>
@@ -339,6 +347,7 @@
         <div class="done-summary-row"><span class="key">Bridge name</span><span class="val" id="sum-name">—</span></div>
         <div class="done-summary-row"><span class="key">Passcode</span><span class="val" id="sum-passcode">—</span></div>
         <div class="done-summary-row"><span class="key">Location</span><span class="val" id="sum-location">—</span></div>
+        <div class="done-summary-row"><span class="key">Timezone</span><span class="val" id="sum-timezone">—</span></div>
       </div>
 
       <div class="error-msg" id="setup-error"></div>
@@ -361,6 +370,13 @@
 <script>
 let currentStep = <%= accountOnly ? 1 : 0 %>;
 
+// Default the timezone to this device's own zone unless one is already saved
+(function () {
+  const sel = document.getElementById('timezone');
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (<%- JSON.stringify(!location.timezone) %> && zone && sel.querySelector(`option[value="${zone}"]`)) sel.value = zone;
+})();
+
 function goTo(n) {
   if (n === 4) {
     // Populate summary before showing done step
@@ -370,6 +386,7 @@ function goTo(n) {
     const lat = document.getElementById('latitude').value;
     const lon = document.getElementById('longitude').value;
     document.getElementById('sum-location').textContent = (lat && lon) ? `${parseFloat(lat).toFixed(4)}, ${parseFloat(lon).toFixed(4)}` : 'Not set';
+    document.getElementById('sum-timezone').textContent = document.getElementById('timezone').value.replace(/_/g, ' ');
   }
   document.getElementById('step-' + currentStep).classList.remove('active');
   document.getElementById('step-' + n).classList.add('active');
@@ -440,6 +457,7 @@ async function finish() {
     username:      document.getElementById('username').value.trim(),
     password:      document.getElementById('password').value,
     longitude:     document.getElementById('longitude').value,
+    timezone:      document.getElementById('timezone').value,
   };
 
   try {

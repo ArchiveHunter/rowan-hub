@@ -1,6 +1,7 @@
 location:
   latitude: 51.5      # your latitude  (used for sunrise/sunset automations)
   longitude: -0.12    # your longitude
+  timezone: Europe/London  # IANA zone automations run on (clock changes included); set in Settings → General
 
 bridge:
   name: Rowan Hub

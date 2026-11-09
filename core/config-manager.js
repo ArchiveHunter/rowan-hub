@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const tz = require('./timezone');
 
 const CONFIG_PATH = path.join(__dirname, '..', 'config.yaml');
 
@@ -223,9 +224,28 @@ function getSchemas() {
   return PLUGIN_SCHEMAS;
 }
 
-function updateLocation(latitude, longitude) {
+// Timezone is optional (older clients don't send it); a saved one is kept
+function locationFrom(latitude, longitude, timezone, previous = {}) {
+  const location = { latitude: parseFloat(latitude), longitude: parseFloat(longitude) };
+  if (timezone !== undefined && timezone !== '') {
+    if (!tz.isValid(timezone)) throw new Error('Unknown timezone');
+    location.timezone = timezone;
+  } else if (previous.timezone) {
+    location.timezone = previous.timezone;
+  }
+  return location;
+}
+
+function updateLocation(latitude, longitude, timezone) {
   const config = load();
-  config.location = { latitude: parseFloat(latitude), longitude: parseFloat(longitude) };
+  config.location = locationFrom(latitude, longitude, timezone, config.location);
+  save(config);
+}
+
+function updateTimezone(timezone) {
+  if (!tz.isValid(timezone)) throw new Error('Unknown timezone');
+  const config = load();
+  config.location = { ...(config.location || {}), timezone };
   save(config);
 }
 
@@ -243,7 +263,7 @@ function isSetupComplete() {
   try { return load().setup_complete === true; } catch { return false; }
 }
 
-function completeSetup({ bridgeName, passcode, discriminator, latitude, longitude }) {
+function completeSetup({ bridgeName, passcode, discriminator, latitude, longitude, timezone }) {
   const config = load();
   config.bridge = {
     ...config.bridge,
@@ -251,10 +271,10 @@ function completeSetup({ bridgeName, passcode, discriminator, latitude, longitud
     passcode: parseInt(passcode, 10) || 20202021,
     discriminator: Number.isNaN(parseInt(discriminator, 10)) ? 3840 : parseInt(discriminator, 10),
   };
-  config.location = { latitude: parseFloat(latitude), longitude: parseFloat(longitude) };
+  config.location = locationFrom(latitude, longitude, timezone);
   config.devices = [];
   config.setup_complete = true;
   save(config);
 }
 
-module.exports = { load, save, pluginPath, addDevice, updateDevice, removeDevice, toggleDevice, updatePluginGlobal, togglePlugin, getPlugins, getEnabledPluginNames, getSchemas, updateLocation, isSetupComplete, completeSetup, getMqttBrokerEnabled, setMqttBrokerEnabled };
+module.exports = { load, save, pluginPath, addDevice, updateDevice, removeDevice, toggleDevice, updatePluginGlobal, togglePlugin, getPlugins, getEnabledPluginNames, getSchemas, updateLocation, updateTimezone, isSetupComplete, completeSetup, getMqttBrokerEnabled, setMqttBrokerEnabled };

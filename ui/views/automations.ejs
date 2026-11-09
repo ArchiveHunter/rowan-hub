@@ -20,12 +20,20 @@
       <header class="page-head">
         <div>
           <h1>Automations</h1>
-          <p class="page-sub"><%= active.length %> active · <%= paused.length %> paused · sunrise and sunset follow your location</p>
+          <p class="page-sub"><%= active.length %> active · <%= paused.length %> paused · times are <%= timezone.replace(/_/g, ' ') %> time</p>
         </div>
         <div class="page-actions">
           <button class="btn btn-primary" id="btn-add-auto"><%- include('partials/icon', { name: 'plus', size: 16, stroke: 2.2 }) %>New automation</button>
         </div>
       </header>
+
+      <% if (!timezoneSaved) { %>
+      <div class="alert alert-warn" id="tz-banner" style="margin-bottom:16px;flex-wrap:wrap">
+        <span style="flex:1;min-width:200px">Your timezone isn’t set, so automations run on the hub’s system clock (<%= timezone %>) and won’t follow clock changes.</span>
+        <button class="btn btn-secondary" id="btn-use-tz" type="button" hidden></button>
+        <a class="btn btn-secondary" href="/settings#location-title">Choose in Settings</a>
+      </div>
+      <% } %>
 
       <% if (automations.length === 0) { %>
       <div class="empty-state">
@@ -136,5 +144,21 @@
 </script>
 <script src="/js/main.js"></script>
 <script src="/js/automations.js"></script>
+<script>
+(function () {
+  // One tap to adopt this device's own zone
+  var btn = document.getElementById('btn-use-tz');
+  var zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (!btn || !zone) return;
+  btn.textContent = 'Use ' + zone.replace(/_/g, ' ');
+  btn.hidden = false;
+  btn.addEventListener('click', function () {
+    btn.disabled = true;
+    api('PUT', '/api/timezone', { timezone: zone })
+      .then(function () { showToast('Timezone set to ' + zone.replace(/_/g, ' '), 'success'); setTimeout(function () { location.reload(); }, 800); })
+      .catch(function (e) { btn.disabled = false; showToast(e.message, 'error'); });
+  });
+})();
+</script>
 </body>
 </html>

@@ -10,6 +10,7 @@ const scenesManager = require('./core/scenes-manager');
 const pushManager = require('./core/push-manager');
 const mqttBroker = require('./core/mqtt-broker');
 const configManager = require('./core/config-manager');
+const timezone = require('./core/timezone');
 
 async function main() {
   const configPath = path.join(__dirname, 'config.yaml');
@@ -19,6 +20,10 @@ async function main() {
   }
 
   const config = yaml.load(fs.readFileSync(configPath, 'utf8'));
+
+  // Before anything schedules or formats a time
+  const zone = timezone.apply(config.location?.timezone);
+  console.log(`[Rowan Hub] Timezone: ${zone}${config.location?.timezone ? '' : ' (system default — not set in Settings)'}`);
 
   const registry = new Registry();
   const bridge = new RowanHubBridge(config.bridge);

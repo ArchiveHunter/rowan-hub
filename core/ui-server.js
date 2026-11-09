@@ -14,6 +14,7 @@ const pushManager = require('./push-manager');
 const mqttBroker = require('./mqtt-broker');
 const auth = require('./auth');
 const describe = require('./describe');
+const timezone = require('./timezone');
 const { version } = require('../package.json');
 
 const CERT_PATH = path.join(__dirname, '..', 'rowan-hub-cert.pem');
@@ -189,7 +190,10 @@ async function startUiServer(registry, config, scheduler, bridge) {
     const setupComplete = configManager.isSetupComplete();
     if (setupComplete && auth.hasAccount()) return res.redirect('/dashboard');
     const cfg = configManager.load();
-    res.render('setup', { bridge: cfg.bridge || {}, location: cfg.location || {}, accountOnly: setupComplete });
+    res.render('setup', {
+      bridge: cfg.bridge || {}, location: cfg.location || {}, accountOnly: setupComplete,
+      timezones: Intl.supportedValuesOf('timeZone'),
+    });
   });
 
   app.post('/api/setup/complete', (req, res) => {
@@ -343,6 +347,7 @@ async function startUiServer(registry, config, scheduler, bridge) {
     res.render('automations', {
       automations: automationsManager.getAll(), devices: allDevicesForUI(registry),
       deviceNames: names, disabledIds: disabled, nextRuns, page: 'automations',
+      timezone: timezone.current(), timezoneSaved: Boolean(configManager.load().location?.timezone),
     });
   });
 
@@ -352,7 +357,10 @@ async function startUiServer(registry, config, scheduler, bridge) {
 
   app.get('/settings', async (req, res) => {
     const cfg = configManager.load();
-    res.render('settings', { bridge: cfg.bridge || {}, location: cfg.location || {}, ...(await pairingInfo()), page: 'settings', tab: 'general' });
+    res.render('settings', {
+      bridge: cfg.bridge || {}, location: cfg.location || {}, ...(await pairingInfo()), page: 'settings', tab: 'general',
+      timezone: timezone.current(), timezones: Intl.supportedValuesOf('timeZone'),
+    });
   });
 
   app.get('/system', (req, res) => {
@@ -584,18 +592,35 @@ async function startUiServer(registry, config, scheduler, bridge) {
 
   app.put('/api/location', (req, res) => {
     try {
-      const { latitude, longitude } = req.body;
+      const { latitude, longitude, timezone: zone } = req.body;
       if (latitude === undefined || longitude === undefined) throw new Error('latitude and longitude required');
-      configManager.updateLocation(latitude, longitude);
-      if (scheduler) {
-        scheduler.setLocation(configManager.load().location);
-        scheduler.reload();
-      }
-      res.json({ ok: true });
+      configManager.updateLocation(latitude, longitude, zone);
+      applyLocation();
+      res.json({ ok: true, timezone: timezone.current() });
     } catch (e) {
       res.status(400).json({ error: e.message });
     }
   });
+
+  app.put('/api/timezone', (req, res) => {
+    try {
+      configManager.updateTimezone(req.body?.timezone);
+      applyLocation();
+      res.json({ ok: true, timezone: timezone.current() });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  });
+
+  // New coordinates / zone take effect straight away — timers are rebuilt on the new clock
+  function applyLocation() {
+    const location = configManager.load().location || {};
+    timezone.apply(location.timezone);
+    if (scheduler) {
+      scheduler.setLocation(location);
+      scheduler.reload();
+    }
+  }
 
   // ─── API: logs ───────────────────────────────────────────────────────────────
 
