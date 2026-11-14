@@ -38,6 +38,9 @@
         <article class="card scene-card" data-scene-id="<%= scene.id %>">
           <h3><%= scene.name %></h3>
           <p class="sentence"><%= cap(describe.actionsText(scene.actions, nameOf)) %>.</p>
+          <% if (scene.triggerSensor) { %>
+          <p class="form-hint" style="margin-top:-6px">Opens the “<%= scene.name %> Trigger” sensor when it runs</p>
+          <% } %>
           <% if (skipped.length) { %>
           <p class="warn-text" style="margin-top:-6px"><%- include('partials/icon', { name: 'warn', size: 15, stroke: 2 }) %><%= describe.joinNames(skipped) %> <%= skipped.length === 1 ? 'is' : 'are' %> disabled and will be skipped</p>
           <% } %>
@@ -71,6 +74,16 @@
         <label class="form-label">What should it do?</label>
         <div id="scene-actions-list"></div>
         <button class="btn btn-dashed btn-sm" id="btn-add-scene-action" type="button">+ Add a device</button>
+      </div>
+      <div class="form-group">
+        <div style="display:flex;align-items:center;gap:12px;justify-content:space-between">
+          <label class="form-label" for="scene-trigger-sensor" style="margin:0">Trigger sensor for routines</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="scene-trigger-sensor">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <span class="form-hint">Adds a “<span id="scene-sensor-name">Scene</span> Trigger” contact sensor that opens for 10 seconds each time this scene runs, from any app. Use it to start an Alexa, Google or Apple Home routine — for example music or speech. Shows in your home apps after Rowan Hub restarts.</span>
       </div>
     </div>
     <div class="modal-footer">

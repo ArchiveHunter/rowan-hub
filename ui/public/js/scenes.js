@@ -150,12 +150,19 @@
 
   document.getElementById('btn-add-scene-action').addEventListener('click', function () { addActionRow(); });
 
+  function syncSensorName() {
+    document.getElementById('scene-sensor-name').textContent = document.getElementById('scene-name').value.trim() || 'Scene';
+  }
+  document.getElementById('scene-name').addEventListener('input', syncSensorName);
+
   // ── Open add ──────────────────────────────────────────────────────────────
 
   function openAdd() {
     document.getElementById('scene-modal-title').textContent = 'New scene';
     document.getElementById('scene-id').value = '';
     document.getElementById('scene-name').value = '';
+    document.getElementById('scene-trigger-sensor').checked = false;
+    syncSensorName();
     document.getElementById('scene-actions-list').innerHTML = '';
     addActionRow();
     openModal();
@@ -177,6 +184,8 @@
         document.getElementById('scene-modal-title').textContent = 'Edit scene';
         document.getElementById('scene-id').value = scene.id;
         document.getElementById('scene-name').value = scene.name;
+        document.getElementById('scene-trigger-sensor').checked = !!scene.triggerSensor;
+        syncSensorName();
         document.getElementById('scene-actions-list').innerHTML = '';
         (scene.actions || []).forEach(function (a) { addActionRow(a.device, a.capability, a.value); });
         openModal();
@@ -206,7 +215,7 @@
 
     var method = id ? 'PUT' : 'POST';
     var url = id ? '/api/scenes/' + id : '/api/scenes';
-    fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, actions }) })
+    fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, actions, triggerSensor: document.getElementById('scene-trigger-sensor').checked }) })
       .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Request failed'); }); })
       .then(function () { location.reload(); })
       .catch(function (e) { alert('Save failed: ' + e.message); });

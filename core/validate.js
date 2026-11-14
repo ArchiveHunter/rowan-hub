@@ -40,6 +40,7 @@ function scene(data, partial = false) {
   const out = {};
   if (!partial || data.name !== undefined) out.name = name(data.name);
   if (!partial || data.actions !== undefined) out.actions = actions(data.actions);
+  if (data.triggerSensor !== undefined) out.triggerSensor = Boolean(data.triggerSensor);
   return out;
 }
 

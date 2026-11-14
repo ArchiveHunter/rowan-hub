@@ -551,6 +551,7 @@ async function startUiServer(registry, config, scheduler, bridge) {
     const scene = scenesManager.getAll().find(s => s.id === req.params.id);
     if (!scene) return res.status(404).json({ error: 'Scene not found' });
     const origin = { ...activityLog.webOrigin(req, res.locals.user), scene: scene.name };
+    if (bridge) bridge.pulseSceneSensor(scene.id);
     try {
       for (const action of scene.actions) {
         await registry.set(action.device, action.capability, action.value, origin);

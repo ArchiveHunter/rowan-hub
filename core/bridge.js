@@ -5,9 +5,13 @@ const { Endpoint, Environment, ServerNode, VendorId } = require('@matter/main');
 const { AggregatorEndpoint } = require('@matter/main/endpoints/aggregator');
 const { BridgedDeviceBasicInformationServer } = require('@matter/main/behaviors/bridged-device-basic-information');
 const { OnOffPlugInUnitDevice } = require('@matter/main/devices/on-off-plug-in-unit');
+const { ContactSensorDevice } = require('@matter/main/devices/contact-sensor');
 const { DeviceCommissioner } = require('@matter/protocol');
 const { buildEndpoints } = require('./device-builder');
 const activityLog = require('./activity-log');
+
+// Long enough for a home app to notice and start a routine on "opened"
+const SCENE_SENSOR_OPEN_MS = 10 * 1000;
 
 class RowanHubBridge {
   constructor(config) {
@@ -15,6 +19,7 @@ class RowanHubBridge {
     this._server = null;
     this._aggregator = null;
     this._deviceEndpoints = new Map(); // deviceId → Endpoint[]
+    this._sceneSensors = new Map(); // sceneId → { endpoint, timer }
     this._windowOpen = false;
   }
 
@@ -95,6 +100,7 @@ class RowanHubBridge {
       }
     );
     await this._aggregator.add(endpoint);
+    if (scene.triggerSensor) await this._addSceneSensor(scene);
 
     let triggering = false;
     let origin = null;
@@ -104,6 +110,7 @@ class RowanHubBridge {
       triggering = true;
       const sceneOrigin = { ...(origin || { source: 'matter' }), scene: scene.name };
       origin = null;
+      this.pulseSceneSensor(scene.id);
       // Errors must not skip the reset below, or the scene stays latched and never fires again
       for (const action of scene.actions || []) {
         try {
@@ -119,6 +126,38 @@ class RowanHubBridge {
     });
 
     console.log(`[Rowan Hub] Registered scene: ${scene.name}`);
+  }
+
+  // A contact sensor that opens for a few seconds whenever the scene runs. Home apps can't run
+  // each other's routines, but they can all react to a sensor — so a Siri scene can start an
+  // Alexa routine (music, speech) through this.
+  async _addSceneSensor(scene) {
+    const endpoint = new Endpoint(
+      ContactSensorDevice.with(BridgedDeviceBasicInformationServer),
+      {
+        id: `scene-${scene.id}-sensor`,
+        bridgedDeviceBasicInformation: {
+          nodeLabel: `${scene.name} Trigger`,
+          productName: `${scene.name} Trigger`,
+          productLabel: 'Scene trigger sensor',
+          serialNumber: `rowan-scnsr-${scene.id}`.slice(0, 32),
+          reachable: true,
+        },
+        booleanState: { stateValue: true }, // true = closed
+      }
+    );
+    await this._aggregator.add(endpoint);
+    this._sceneSensors.set(scene.id, { endpoint, timer: null });
+  }
+
+  pulseSceneSensor(sceneId) {
+    const sensor = this._sceneSensors.get(sceneId);
+    if (!sensor) return;
+    clearTimeout(sensor.timer);
+    sensor.endpoint.set({ booleanState: { stateValue: false } }).catch(() => {});
+    sensor.timer = setTimeout(() => {
+      sensor.endpoint.set({ booleanState: { stateValue: true } }).catch(() => {});
+    }, SCENE_SENSOR_OPEN_MS);
   }
 
   async start() {
