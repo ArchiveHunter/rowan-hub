@@ -262,7 +262,7 @@ Disabled devices can be toggled on or off from the Devices page in the web UI. E
 
 ### WLED
 
-Connects via WebSocket for real-time state and HTTP for preset discovery. The connection is pinged every 30 seconds and reopened if WLED stops answering; WLED sends its full state on reconnect, so changes made in the meantime (including WLED's own timers) catch up. Presets listed in config appear as individual switches — mutually exclusive (selecting one turns off the others).
+Connects via WebSocket for real-time state and HTTP for preset discovery. The connection is pinged every 30 seconds and reopened if WLED stops answering; WLED sends its full state on reconnect, so changes made in the meantime (including WLED's own timers) catch up. Colours are applied to every segment, and a colour set by a scene or automation is shown solid (any running effect stops). Presets listed in config appear as individual switches — mutually exclusive (selecting one turns off the others).
 
 Find preset names in the WLED web UI under Presets.
 
@@ -384,7 +384,7 @@ The UI works on desktop (sidebar) and phones (bottom tab bar), in **Light, Dark 
 |---|---|
 | **Home** | Devices grouped by room — tap a tile to switch it on/off, the arrow opens brightness, colour and presets. Shows the next automation, your scenes and which home apps are paired |
 | **Devices** | Add, edit, remove and enable/disable devices. Give each one a **Room** (groups the Home screen) and a **Type** (its icon) |
-| **Scenes** | Create named scenes — each also appears as a switch in your home apps |
+| **Scenes** | Create named scenes — each also appears as a switch in your home apps. Turn on **Trigger sensor for routines** to add a “<scene> Trigger” contact sensor that opens for 10 seconds whenever the scene runs, so one home app's scene can start another's routine (e.g. a Siri scene that sets off an Alexa routine playing music) |
 | **Automations** | Time and sunrise/sunset rules, written as plain sentences with their next run time; warns when a rule uses a disabled device |
 | **Settings → General** | Connected home apps, pairing QR + setup code, appearance, account, location |
 | **Settings → Integrations** | Turn plugins on/off, plugin account settings, internal MQTT broker set-up guides |

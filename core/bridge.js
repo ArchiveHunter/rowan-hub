@@ -52,7 +52,7 @@ class RowanHubBridge {
         uniqueId,
         hardwareVersion: 1,
         hardwareVersionString: '1',
-        softwareVersion: 16,
+        softwareVersion: 17,
         softwareVersionString: require('../package.json').version,
       },
     });
