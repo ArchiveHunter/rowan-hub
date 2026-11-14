@@ -3,6 +3,10 @@ const axios = require('axios');
 const { EventEmitter } = require('events');
 const { rgbToHsl, hslToRgb } = require('../../core/color');
 
+// WLED only sends on change, so a connection that dies without a close (Wi-Fi blip, WLED
+// dropping the client) looks the same as a quiet one. Ping it; no pong by the next ping = dead.
+const HEARTBEAT_MS = 30 * 1000;
+
 class WledDriver extends EventEmitter {
   constructor(config) {
     super();
@@ -13,6 +17,8 @@ class WledDriver extends EventEmitter {
     this.state = { on: false, brightness: 0, hue: 0, saturation: 0, activePreset: -1 };
     this._ws = null;
     this._reconnectTimer = null;
+    this._heartbeat = null;
+    this._destroyed = false;
     this._pendingHue = null;
     this._colorDebounce = null;
   }
@@ -54,23 +60,39 @@ class WledDriver extends EventEmitter {
   }
 
   _connectWs() {
-    this._ws = new WebSocket(`ws://${this.host}/ws`);
+    const ws = this._ws = new WebSocket(`ws://${this.host}/ws`, { handshakeTimeout: 10000 });
+    let alive = true;
 
-    this._ws.on('open', () => console.log(`[WLED:${this.name}] WebSocket connected`));
+    ws.on('open', () => {
+      console.log(`[WLED:${this.name}] WebSocket connected`);
+      // WLED sends its full state on connect, so anything missed while disconnected catches up
+      this._heartbeat = setInterval(() => {
+        if (!alive) {
+          console.warn(`[WLED:${this.name}] WebSocket stopped answering, reconnecting`);
+          return ws.terminate();
+        }
+        alive = false;
+        try { ws.ping(); } catch {}
+      }, HEARTBEAT_MS);
+    });
+    ws.on('pong', () => { alive = true; });
 
-    this._ws.on('message', (data) => {
+    ws.on('message', (data) => {
+      alive = true;
       try {
         const msg = JSON.parse(data.toString());
         if (msg.state) this._applyRaw(msg.state);
       } catch {}
     });
 
-    this._ws.on('close', () => {
+    ws.on('close', () => {
+      clearInterval(this._heartbeat);
+      if (this._destroyed) return;
       console.log(`[WLED:${this.name}] WebSocket closed, reconnecting in 5s`);
       this._reconnectTimer = setTimeout(() => this._connectWs(), 5000);
     });
 
-    this._ws.on('error', () => {});
+    ws.on('error', () => {});
   }
 
   _applyRaw(raw) {
@@ -171,7 +193,9 @@ class WledDriver extends EventEmitter {
   }
 
   destroy() {
+    this._destroyed = true; // or the close handler below books a reconnect
     clearTimeout(this._reconnectTimer);
+    clearInterval(this._heartbeat);
     clearTimeout(this._colorDebounce);
     if (this._ws) this._ws.terminate();
   }
