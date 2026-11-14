@@ -1,4 +1,5 @@
 const { EventEmitter } = require('events');
+const activityLog = require('./activity-log');
 
 const OFFLINE_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes with no state update
 const OFFLINE_CHECK_INTERVAL_MS = 60 * 1000; // check every minute
@@ -18,14 +19,17 @@ class Registry extends EventEmitter {
 
     driver.on('state', (state) => {
       const wasOffline = this._offlineState.get(id);
+      const firstReport = entry.lastSeen === null; // startup state isn't a change anyone made
       entry.lastSeen = Date.now();
       if (wasOffline) {
         this._offlineState.set(id, false);
         this.emit('device-online', { id, name: config.name });
       }
       // Deduplicate: only forward to SSE clients when state actually changed
-      const prev = JSON.stringify(entry.state);
+      const prevState = entry.state;
+      const prev = JSON.stringify(prevState);
       entry.state = { ...state };
+      if (!firstReport) activityLog.observe(id, config.name, prevState, entry.state);
       if (JSON.stringify(entry.state) !== prev) {
         this.emit('state', { deviceId: id, state: entry.state });
       }
@@ -84,10 +88,11 @@ class Registry extends EventEmitter {
     };
   }
 
-  async set(id, capability, value) {
+  // origin = who asked, for the activity log: { source, by?, scene? }
+  async set(id, capability, value, origin) {
     const entry = this.devices.get(id);
     if (!entry) throw new Error(`Unknown device: ${id}`);
-    await entry.driver.set(capability, value);
+    await activityLog.run(id, entry.config.name, capability, value, origin, () => entry.driver.set(capability, value));
   }
 
   unregister(id) {

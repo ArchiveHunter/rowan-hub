@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: 'Activity' }) %>
+</head>
+<body>
+<%
+  var SOURCE_ICON = { apple: 'home', alexa: 'broadcast', google: 'home', smartthings: 'home', matter: 'mesh',
+    web: 'monitor', automation: 'automations', device: 'switch' };
+  function dayLabel(ts) {
+    var d = new Date(ts), now = new Date();
+    var startOf = function (x) { return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(); };
+    var days = Math.round((startOf(now) - startOf(d)) / 86400000);
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+  function timeLabel(ts) {
+    return new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+  var lastDay = null;
+%>
+<div class="app">
+  <%- include('partials/sidebar') %>
+  <main class="main">
+    <div class="container">
+      <%- include('partials/settings-tabs') %>
+
+      <div class="page-head" style="align-items:center">
+        <p class="page-sub" style="margin:0">Every time something is switched on or off, and who did it. Kept for <%= retentionDays %> days.</p>
+      </div>
+
+      <form class="chips" method="get" action="/activity" id="activity-filters" style="margin-bottom:16px">
+        <label class="sr-only" for="f-device">Device</label>
+        <select id="f-device" name="device" style="width:auto">
+          <option value="">All devices</option>
+          <% Object.keys(deviceNames).forEach(function (id) { %>
+          <option value="<%= id %>"<%= filters.device === id ? ' selected' : '' %>><%= deviceNames[id] %></option>
+          <% }) %>
+        </select>
+        <label class="sr-only" for="f-source">Who</label>
+        <select id="f-source" name="source" style="width:auto">
+          <option value="">Anyone</option>
+          <% Object.keys(sources).forEach(function (s) { %>
+          <option value="<%= s %>"<%= filters.source === s ? ' selected' : '' %>><%= sources[s] %></option>
+          <% }) %>
+        </select>
+        <label class="sr-only" for="f-action">What</label>
+        <select id="f-action" name="action" style="width:auto">
+          <option value="">On and off</option>
+          <option value="off"<%= filters.action === 'off' ? ' selected' : '' %>>Turned off</option>
+          <option value="on"<%= filters.action === 'on' ? ' selected' : '' %>>Turned on</option>
+          <option value="preset"<%= filters.action === 'preset' ? ' selected' : '' %>>Presets</option>
+        </select>
+        <label class="sr-only" for="f-days">When</label>
+        <select id="f-days" name="days" style="width:auto">
+          <% [[1, 'Last 24 hours'], [7, 'Last 7 days'], [30, 'Last 30 days'], [retentionDays, 'Last ' + retentionDays + ' days']].forEach(function (o) { %>
+          <option value="<%= o[0] %>"<%= filters.days === o[0] ? ' selected' : '' %>><%= o[1] %></option>
+          <% }) %>
+        </select>
+        <noscript><button class="btn btn-secondary btn-sm" type="submit">Show</button></noscript>
+      </form>
+
+      <% if (entries.length === 0) { %>
+      <div class="empty-state">
+        <div class="empty-icon"><%- include('partials/icon', { name: 'switch', size: 26 }) %></div>
+        <h2>Nothing yet</h2>
+        <p>Switch something on or off from a home app, this website or at the device and it will show here.</p>
+      </div>
+      <% } else { %>
+      <div class="list">
+        <% entries.forEach(function (e) {
+             var day = dayLabel(e.ts);
+             if (day !== lastDay) { lastDay = day; %>
+        <div class="card-head"><h2 style="font-size:15px"><%= day %></h2></div>
+        <% } %>
+        <div class="row">
+          <span class="row-icon"><%- include('partials/icon', { name: SOURCE_ICON[e.source] || 'more' }) %></span>
+          <div class="row-main">
+            <div class="row-title">
+              <%= e.name %>
+              <span class="pill<%= e.failed ? ' pill--danger' : e.action === 'off' ? ' pill--warn' : e.action === 'on' ? ' pill--success' : '' %>"><%= activityLog.actionText(e) %><%= e.failed ? ' — failed' : '' %></span>
+            </div>
+            <div class="row-sub">
+              <strong><%= activityLog.sourceName(e.source) %></strong><% if (e.by) { %> · <%= e.by %><% } %><% if (e.scene) { %> · scene “<%= e.scene %>”<% } %><% if (e.failed) { %> · <%= e.failed %><% } %>
+            </div>
+          </div>
+          <div class="row-meta" style="flex-basis:auto;text-align:right"><strong><%= timeLabel(e.ts) %></strong></div>
+        </div>
+        <% }) %>
+      </div>
+      <% if (entries.length >= 1000) { %><p class="form-hint" style="margin-top:12px">Showing the latest 1,000 — narrow the filters to see older ones.</p><% } %>
+      <% } %>
+
+    </div>
+  </main>
+</div>
+<script src="/js/main.js"></script>
+<script>
+  document.querySelectorAll('#activity-filters select').forEach(function (s) {
+    s.addEventListener('change', function () { s.form.submit(); });
+  });
+</script>
+</body>
+</html>

@@ -15,6 +15,7 @@ const mqttBroker = require('./mqtt-broker');
 const auth = require('./auth');
 const describe = require('./describe');
 const timezone = require('./timezone');
+const activityLog = require('./activity-log');
 const { version } = require('../package.json');
 
 const CERT_PATH = path.join(__dirname, '..', 'rowan-hub-cert.pem');
@@ -351,6 +352,21 @@ async function startUiServer(registry, config, scheduler, bridge) {
     });
   });
 
+  app.get('/activity', (req, res) => {
+    const filters = {
+      device: String(req.query.device || ''),
+      source: String(req.query.source || ''),
+      action: String(req.query.action || ''),
+      days: [1, 7, 30, activityLog.RETENTION_DAYS].includes(Number(req.query.days)) ? Number(req.query.days) : 7,
+    };
+    const { names } = deviceDirectory();
+    res.render('activity', {
+      entries: activityLog.query({ ...filters, limit: 1000 }), filters, deviceNames: names,
+      sources: activityLog.SOURCES, retentionDays: activityLog.RETENTION_DAYS, activityLog,
+      page: 'settings', tab: 'activity',
+    });
+  });
+
   app.get('/logs', (req, res) => {
     res.render('logs', { page: 'settings', tab: 'logs' });
   });
@@ -387,7 +403,7 @@ async function startUiServer(registry, config, scheduler, bridge) {
   app.post('/api/devices/:id/set', async (req, res) => {
     const { capability, value } = req.body;
     try {
-      await registry.set(req.params.id, capability, value);
+      await registry.set(req.params.id, capability, value, activityLog.webOrigin(req, res.locals.user));
       res.json({ ok: true });
     } catch (e) {
       res.status(400).json({ error: e.message });
@@ -534,9 +550,10 @@ async function startUiServer(registry, config, scheduler, bridge) {
   app.post('/api/scenes/:id/trigger', async (req, res) => {
     const scene = scenesManager.getAll().find(s => s.id === req.params.id);
     if (!scene) return res.status(404).json({ error: 'Scene not found' });
+    const origin = { ...activityLog.webOrigin(req, res.locals.user), scene: scene.name };
     try {
       for (const action of scene.actions) {
-        await registry.set(action.device, action.capability, action.value);
+        await registry.set(action.device, action.capability, action.value, origin);
       }
       res.json({ ok: true });
     } catch (e) {
@@ -623,6 +640,11 @@ async function startUiServer(registry, config, scheduler, bridge) {
   }
 
   // ─── API: logs ───────────────────────────────────────────────────────────────
+
+  app.get('/api/activity', (req, res) => {
+    const { device, source, action } = req.query;
+    res.json(activityLog.query({ device, source, action, days: Number(req.query.days) || 7, limit: Number(req.query.limit) || 500 }));
+  });
 
   app.get('/api/logs/history', (req, res) => res.json(logger.getRecent()));
 

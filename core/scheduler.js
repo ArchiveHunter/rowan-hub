@@ -103,7 +103,7 @@ class Scheduler extends EventEmitter {
     console.log(`[Scheduler] Firing: "${auto.name}"`);
     for (const action of auto.actions) {
       try {
-        await this._registry.set(action.device, action.capability, action.value);
+        await this._registry.set(action.device, action.capability, action.value, { source: 'automation', by: auto.name });
       } catch (e) {
         console.error(`[Scheduler] Action failed (${action.device}): ${e.message}`);
       }

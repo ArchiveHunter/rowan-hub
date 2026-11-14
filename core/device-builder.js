@@ -12,6 +12,7 @@ const { ContactSensorDevice } = require('@matter/main/devices/contact-sensor');
 const { OccupancySensorDevice } = require('@matter/main/devices/occupancy-sensor');
 const { TemperatureSensorDevice } = require('@matter/main/devices/temperature-sensor');
 const { HumiditySensorDevice } = require('@matter/main/devices/humidity-sensor');
+const activityLog = require('./activity-log');
 
 // HS + CT + XY — all three features needed for ExtendedColorLight compliance
 const HsColorLightDevice = ExtendedColorLightDevice.with(
@@ -44,6 +45,14 @@ function bridgeInfo(config, label) {
 
 function logErr(name, cap, e) {
   console.error(`[Matter:${name}] set ${cap} failed: ${e.message}`);
+}
+
+// Remembers which home app is changing an endpoint's on/off (only `$Changing` listeners get the
+// Matter context), so the `$Changed` handler can put it in the activity log.
+function trackOrigin(endpoint) {
+  let origin = null;
+  endpoint.events.onOff.onOff$Changing.on((value, old, context) => { origin = activityLog.matterOrigin(context); });
+  return () => { const o = origin; origin = null; return o; }; // null = a local write
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -110,12 +119,14 @@ function buildLightOrSwitchEndpoint(deviceConfig, driver, caps) {
   const endpoint = new Endpoint(DeviceBase.with(BridgedDeviceBasicInformationServer, FixedLabelServer), endpointOptions);
 
   let syncing = false;
+  const takeOrigin = trackOrigin(endpoint);
 
   // ── Matter → driver ────────────────────────────────────────────────────────
 
   endpoint.events.onOff.onOff$Changed.on(async value => {
     if (syncing) return;
-    driver.set('power', value).catch(e => logErr(name, 'power', e));
+    activityLog.run(deviceConfig.id, name, 'power', value, takeOrigin() || { source: 'matter' },
+      () => driver.set('power', value)).catch(e => logErr(name, 'power', e));
   });
 
   if (hasBrightness) {
@@ -284,10 +295,12 @@ function buildThermostatEndpoint(deviceConfig, driver) {
   );
 
   let syncing = false;
+  const takeOrigin = trackOrigin(endpoint);
 
   endpoint.events.onOff.onOff$Changed.on(async value => {
     if (syncing) return;
-    driver.set('hvacMode', value ? 1 : 0).catch(e => logErr(name, 'hvacMode', e));
+    activityLog.run(deviceConfig.id, name, 'hvacMode', value ? 1 : 0, takeOrigin() || { source: 'matter' },
+      () => driver.set('hvacMode', value ? 1 : 0)).catch(e => logErr(name, 'hvacMode', e));
   });
 
   driver.on('state', async state => {
@@ -328,14 +341,21 @@ function buildPresetEndpoint(deviceConfig, driver, presetName) {
     }
   );
 
+  const takeOrigin = trackOrigin(endpoint);
+
   endpoint.events.onOff.onOff$Changed.on(async value => {
+    // Local writes (reflecting the active preset below) carry no Matter context
+    const origin = takeOrigin();
+    if (!origin) return;
     if (value) {
-      driver.set('preset', presetName).catch(e => logErr(label, 'preset', e));
+      activityLog.run(deviceConfig.id, deviceConfig.name, 'preset', presetName, origin,
+        () => driver.set('preset', presetName)).catch(e => logErr(label, 'preset', e));
     } else {
       const active  = driver.get('activePreset');
       const presetId = driver.getPresetId(presetName);
       if (presetId >= 0 && active === presetId) {
-        driver.set('power', false).catch(e => logErr(label, 'power', e));
+        activityLog.run(deviceConfig.id, deviceConfig.name, 'power', false, origin,
+          () => driver.set('power', false)).catch(e => logErr(label, 'power', e));
       }
     }
   });

@@ -16,6 +16,7 @@ Most smart home bridges lock you into one ecosystem. Rowan Hub uses the open Mat
 - **Runs locally** — no cloud required for device control
 - **No Alexa skill needed** — Matter bridges work natively without publishing
 - **Devices, scenes, and automations** — managed in one place, visible everywhere
+- **Activity log** — every on/off, and whether it came from Apple Home, Alexa, Google Home, the web UI, an automation or the device itself
 
 ---
 
@@ -261,7 +262,7 @@ Disabled devices can be toggled on or off from the Devices page in the web UI. E
 
 ### WLED
 
-Connects via WebSocket for real-time state and HTTP for preset discovery. Presets listed in config appear as individual switches — mutually exclusive (selecting one turns off the others).
+Connects via WebSocket for real-time state and HTTP for preset discovery. The connection is pinged every 30 seconds and reopened if WLED stops answering; WLED sends its full state on reconnect, so changes made in the meantime (including WLED's own timers) catch up. Presets listed in config appear as individual switches — mutually exclusive (selecting one turns off the others).
 
 Find preset names in the WLED web UI under Presets.
 
@@ -388,6 +389,7 @@ The UI works on desktop (sidebar) and phones (bottom tab bar), in **Light, Dark 
 | **Settings → General** | Connected home apps, pairing QR + setup code, appearance, account, location |
 | **Settings → Integrations** | Turn plugins on/off, plugin account settings, internal MQTT broker set-up guides |
 | **Settings → System** | Updates, hub stats, push notifications on this device, restart |
+| **Settings → Activity** | Every on/off and preset, newest first, with who or what did it: the home app (Apple Home, Amazon Alexa, Google Home), the web UI (login, the device's IP address and browser), a scene or automation, or **At the device** — a change Rowan Hub didn't make, such as a wall switch, the device's own app or power coming back. Failed commands are listed as failed. Filter by device, source, on/off and period; kept for 90 days in `activity.jsonl` |
 | **Settings → Logs** | Live log console |
 
 ---
@@ -444,10 +446,12 @@ rowan-hub/
 ├── scripts/
 │   └── rowan-hub-mosquitto   # Root helper for the MQTT broker (installed to /usr/local/sbin)
 ├── matter-storage/           # Commissioning state (gitignored — do not delete while paired)
+├── activity.jsonl            # Activity log, 90 days (gitignored)
 ├── core/
 │   ├── bridge.js             # Matter bridge (ServerNode + AggregatorEndpoint)
 │   ├── registry.js           # Device registry + state
 │   ├── device-builder.js     # Matter endpoint construction
+│   ├── activity-log.js       # Who switched what (Settings → Activity)
 │   ├── config-manager.js     # Config CRUD + plugin schemas
 │   ├── auth.js               # Login, password hashing, signed session cookies
 │   ├── validate.js           # Scene + automation input validation

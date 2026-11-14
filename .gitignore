@@ -17,3 +17,4 @@ letsencrypt-cert.pem
 letsencrypt-key.pem
 letsencrypt-fullchain.pem
 .npm-cache/
+activity.jsonl

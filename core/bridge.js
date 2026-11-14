@@ -7,6 +7,7 @@ const { BridgedDeviceBasicInformationServer } = require('@matter/main/behaviors/
 const { OnOffPlugInUnitDevice } = require('@matter/main/devices/on-off-plug-in-unit');
 const { DeviceCommissioner } = require('@matter/protocol');
 const { buildEndpoints } = require('./device-builder');
+const activityLog = require('./activity-log');
 
 class RowanHubBridge {
   constructor(config) {
@@ -51,6 +52,10 @@ class RowanHubBridge {
       },
     });
 
+    // Which home app a Matter command came from, for the activity log
+    activityLog.setFabricResolver(index =>
+      (this._server.state.operationalCredentials?.fabrics || []).find(f => f.fabricIndex === index) || null);
+
     this._aggregator = new Endpoint(AggregatorEndpoint, { id: 'aggregator' });
     await this._server.add(this._aggregator);
   }
@@ -92,13 +97,17 @@ class RowanHubBridge {
     await this._aggregator.add(endpoint);
 
     let triggering = false;
+    let origin = null;
+    endpoint.events.onOff.onOff$Changing.on((value, old, context) => { origin = activityLog.matterOrigin(context); });
     endpoint.events.onOff.onOff$Changed.on(async value => {
       if (!value || triggering) return;
       triggering = true;
+      const sceneOrigin = { ...(origin || { source: 'matter' }), scene: scene.name };
+      origin = null;
       // Errors must not skip the reset below, or the scene stays latched and never fires again
       for (const action of scene.actions || []) {
         try {
-          await registry.set(action.device, action.capability, action.value);
+          await registry.set(action.device, action.capability, action.value, sceneOrigin);
         } catch (e) {
           console.error(`[Rowan Hub] Scene "${scene.name}" action failed (${action.device}): ${e.message}`);
         }
