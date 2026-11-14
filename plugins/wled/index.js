@@ -15,6 +15,7 @@ class WledDriver extends EventEmitter {
     this.presetMap = {};   // name → id
     this.idToPreset = {};  // id → name
     this.state = { on: false, brightness: 0, hue: 0, saturation: 0, activePreset: -1 };
+    this._segIds = [0]; // colour goes to every segment, not just the first
     this._ws = null;
     this._reconnectTimer = null;
     this._heartbeat = null;
@@ -103,6 +104,10 @@ class WledDriver extends EventEmitter {
       this.state.activePresetName = this.idToPreset[raw.ps] ?? null;
     }
 
+    if (Array.isArray(raw.seg) && raw.seg.length) {
+      this._segIds = raw.seg.map((g, i) => g.id ?? i);
+    }
+
     if (raw.seg && raw.seg[0] && raw.seg[0].col && raw.seg[0].col[0]) {
       const [r, g, b] = raw.seg[0].col[0];
       if (r || g || b) {
@@ -156,7 +161,8 @@ class WledDriver extends EventEmitter {
         const r = parseInt(value.slice(1, 3), 16);
         const g = parseInt(value.slice(3, 5), 16);
         const b = parseInt(value.slice(5, 7), 16);
-        body = { on: true, seg: [{ col: [[r, g, b]] }] };
+        // A scene colour means a solid colour, so stop any running effect
+        body = { on: true, seg: this._segIds.map(id => ({ id, col: [[r, g, b]], fx: 0 })) };
         break;
       }
       case 'preset': {
@@ -185,7 +191,7 @@ class WledDriver extends EventEmitter {
     try {
       await axios.post(`http://${this.host}/json/state`, {
         on: true,
-        seg: [{ col: [rgb] }]
+        seg: this._segIds.map(id => ({ id, col: [rgb] }))
       }, { timeout: 3000 });
     } catch (e) {
       console.warn(`[WLED:${this.name}] Color flush failed (${e.code || e.message})`);
